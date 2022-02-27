@@ -1,0 +1,5 @@
+```
+yarn install
+yarn test
+```
+

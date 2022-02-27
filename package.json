@@ -1,0 +1,13 @@
+{
+  "name": "lab-assignment-week-6",
+  "version": "1.0.0",
+  "repository": "https://github.com/nus-cs4215/lab-assignment-week-6.git",
+  "author": "Martin Henz <henz@comp.nus.edu.sg>",
+  "license": "GPL",
+  "devDependencies": {
+    "js-slang": "^0.4.71"
+  },
+  "scripts": {
+    "test": "./scripts/test.sh"
+  }
+}
