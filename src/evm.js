@@ -24,6 +24,9 @@ binop   ::= + | - | * | / | < | >
 unop    ::= !
 */
 
+// Functions from SICP JS Section 4.1.2
+// with slight modifications
+
 
 function is_tagged_list(expr, the_tag) {
   return is_pair(expr) && head(expr) === the_tag;
@@ -158,6 +161,22 @@ function MSTORE() {
   return list("MSTORE");
 }
 
+function PC() {
+  return list("PC");
+}
+
+function JUMPI() {
+  return list("JUMPI");
+}
+
+function JUMP() {
+  return list("JUMP");
+}
+
+function JUMPDEST() {
+  return list("JUMPDEST");
+}
+
 function RETURN() {
   return list("RETURN");
 }
@@ -173,6 +192,66 @@ function compile_program(program) {
 }
 
 // compile_expression: see relation hookarrow in 3.5.2
+
+function make_jump_immediate(offset) {
+  return list(PC(), PUSH(offset), PLUS(), JUMP());
+}
+
+function make_jump_condition(offset, condition) {
+  return append(condition, list(PC(), PUSH(offset), PLUS(), JUMPI()));
+}
+
+
+function count_opcode_length(code) {
+  if (head(code) === "PUSH32") {
+      return 33;
+  } else if (head(code) === "PUSH") {
+      return 2;
+  } else {
+      return 1;
+  }
+}
+
+
+function count_length(code) {
+  return accumulate((a, b) =>
+      a + b, 0, map(count_opcode_length, code));
+}
+
+function compile_conditional(expr) {
+  const op = operator(expr);
+  const operand_1 = first_operand(expr);
+  const operand_2 = second_operand(expr);
+
+  if (is_boolean_literal(op)) {
+      return literal_value(op) ? compile_expression(operand_1) : compile_expression(operand_2);
+  }
+  
+  const op1_code = compile_expression(operand_1);
+  const op2_code = compile_expression(operand_2);
+  const op1_length = count_length(op1_code);
+  const op2_length = count_length(op2_code);
+  
+  // if true, op1, jump over op2
+  // if false, jump over op1
+  // cond
+  // jump op1_length + 1
+  // op1
+  // jump op2_length
+  // op2
+  // continue
+  
+  // cond
+  // make jump condition
+  // PC
+  // offset
+  // add
+  const cond = compile_expression(op);
+  
+  return append(make_jump_condition(op2_length + 5, cond), append(op2_code, 
+      append(make_jump_immediate(op1_length + 5), append(op1_code, list(JUMPDEST())))));
+  
+}
 
 function compile_expression(expr) {
   if (is_number_literal(expr)) {
@@ -190,10 +269,11 @@ function compile_expression(expr) {
           if (is_conditional_combination(expr) && is_boolean_literal(op)) {
               return literal_value(op) ? compile_expression(operand_1) : compile_expression(operand_2);
           } else if (is_conditional_combination(expr)) {
-              return append(compile_expression(op),
-                          append(compile_expression(operand_1),
-                              append(compile_expression(operand_2),
-                                  list(make_simple_instruction("COND_2")))));
+              return compile_conditional(expr);
+              // return append(compile_expression(op),
+              //             append(compile_expression(operand_1),
+              //                 append(compile_expression(operand_2),
+              //                     list(make_simple_instruction("COND_2")))));
           } else {
               const op_code = op === "+" ? "ADD"
                             : op === "-" ? "SUB"
@@ -204,11 +284,12 @@ function compile_expression(expr) {
                             : op === ">" ? "GT"
                             : op === "&&" ? "AND"
                             : /*op === "||" ?*/ "OR";
-              if (op_code === "DIV") {
-                return append(compile_expression(operand_2),
-                        append(compile_expression(operand_1),
-                          list(make_simple_instruction(op_code))));
-                }
+              if (op_code === "DIV" || op_code === "LT" || op_code === "GT") {
+                  return append(compile_expression(operand_2),
+                          append(compile_expression(operand_1),
+                           list(make_simple_instruction(op_code))));
+
+              }
               return append(compile_expression(operand_1),
                             append(compile_expression(operand_2),
                                    list(make_simple_instruction(op_code))));
@@ -265,6 +346,7 @@ function to_hex_and_pad(n, code) {
 }
 
 function get_opcode(expr) {
+  display(expr);
   const code = head(expr);
   const data = tail(expr);
   // if (is_pair(data)) {
@@ -277,17 +359,21 @@ function get_opcode(expr) {
        : code === "SUB" ? "03"
        : code === "DIV" ? "04"
        : code === "EQ" ? "14"
+       : code === "LT" ? "10"
+       : code === "GT" ? "11"
        : code === "MSTORE" ? "52"
        : code === "RETURN" ? "F3"
+       : code === "PC" ? "58"
+       : code === "JUMP" ? "56"
+       : code === "JUMPI" ? "57"
+       : code === "JUMPDEST" ? "5B"
        : "00") // STOP
-       + (is_pair(data) ? to_hex_and_pad(head(data), code) : "");
+       + (is_pair(data) && is_number(head(data)) ? to_hex_and_pad(head(data), code) : "");
 }
 
 function translate(lst) {
   const temp = map(get_opcode, lst);
   display(temp);
-  // const t2 = map(lst => accumulate((x, y) => (stringify(x) + y), "", lst), temp);
-  // return t2;
   return accumulate((x, y) => (x + y), "", temp);
 }
 
@@ -383,6 +469,9 @@ function parse_compile_and_run(string) {
 }
 
 // parse_and_compile('3+4;');
-translate(parse_and_compile('13+44+123;'));
+translate(parse_and_compile('(12 + 3) < 10 ? 15+12+123-13 : 12 * 12 * 12;'));
+// translate(parse_and_compile('10/(13+44+123);'));
+// parse_and_compile("10/(2+3);");
+
 
 
