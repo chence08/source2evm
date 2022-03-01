@@ -199,21 +199,58 @@ function compile_expression(expr) {
     }
 }
 
+function hex_string(n) {
+  return n === 0 ? "0"
+       : n === 1 ? "1"
+       : n === 2 ? "2"
+       : n === 3 ? "3"
+       : n === 4 ? "4"
+       : n === 5 ? "5"
+       : n === 6 ? "6"
+       : n === 7 ? "7"
+       : n === 8 ? "8"
+       : n === 9 ? "9"
+       : n === 10 ? "A"
+       : n === 11 ? "B"
+       : n === 12 ? "C"
+       : n === 13 ? "D"
+       : n === 14 ? "E"
+       : "F";
+}
+
+function to_hex(n) {
+  let res = "";
+  let count = 0;
+  while (n > 0) {
+      let a = math_floor(n / 16);
+      let b = n % 16;
+      res = hex_string(b) + res;
+      n = a;
+      count = count + 1;
+  }
+  if (count < 64) {
+      const diff = 64 - count;
+      for (let i = 0; i < diff; i = i + 1) {
+          res = "0" + res;
+      }
+  }
+  return res;
+}
 
 function get_opcode(expr) {
-    const code = head(expr);
-    const data = tail(expr);
-    // if (is_pair(data)) {
-    //     set_head(data, stringify(head(data)));
-    // }
-    return (code === "PUSH32" ? "60"
-         : code === "ADD" ? "01"
-         : code === "MUL" ? "02"
-         : code === "SUB" ? "03"
-         : code === "DIV" ? "04"
-         : code === "EQ" ? "14"
-         : "00") // STOP
-         + (is_pair(data) ? stringify(head(data)) : "");
+  const code = head(expr);
+  const data = tail(expr);
+  // if (is_pair(data)) {
+  //     set_head(data, stringify(head(data)));
+  // }
+  return (code === "PUSH32" ? "7F"
+       : code === "ADD" ? "01"
+       : code === "MUL" ? "02"
+       : code === "SUB" ? "03"
+       : code === "DIV" ? "04"
+       : code === "EQ" ? "14"
+       : "00") // STOP
+       + (is_pair(data) ? to_hex(head(data)) : "");
 }
 
 function translate(lst) {
