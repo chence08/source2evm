@@ -1,33 +1,41 @@
-import { parse } from "js-slang/dist/parser/parser";
+// import { parse } from "js-slang/dist/stdlib/parser.js";
+import createContext from "js-slang/dist/createContext.js";
+import { pair, is_pair, head, tail, is_null, list, set_head, set_tail } from "js-slang/dist/stdlib/list";
+import { parse } from "js-slang/dist/stdlib/parser";
 
-/*
-Virtual machine implementation of language Source §0 
-following the virtual machine of Lecture Week 2 of CS4215
+// console.log(parse('x => x * x;', createContext(4)));
 
-Instructions: Copy this file into the Source Academy frontend:
-              https://source-academy.github.io/playground
-	      You can use the google drive feature to save your 
-	      work. When done, copy the file back to the
-	      repository and push your changes.
+function parseNew(x) {
+  const res = parse(x, createContext());
+  return res;
+}
 
-              To run your program, press "Run" and observe
-	      the result on the right.
+function append(x, y) {
+  return is_null(x)
+         ? y
+         : pair(head(x), append(tail(x), y));
+}
 
-The language Source §0 is defined as follows:
+function accumulate(op, initial, sequence) {
+  return is_null(sequence)
+          ? initial
+          : op(head(sequence), 
+              accumulate(op, initial, tail(sequence)));
+}
 
-prgm    ::= expr ;
+function map(f, lst) {
+  return is_null(lst)
+        ? lst
+        : pair(f(head(lst)), map(f, tail(lst)));
+}
 
-expr    ::= number
-         |  true | false
-         |  expr binop expr
-         |  unop expr
-binop   ::= + | - | * | / | < | > 
-         | === |  && | ||
-unop    ::= !
-*/
+function is_number(x) {
+  return typeof x === 'number'
+}
 
-// Functions from SICP JS Section 4.1.2
-// with slight modifications
+function is_boolean(x) {
+  return 'boolean' === typeof x;
+}
 
 
 function is_tagged_list(expr, the_tag) {
@@ -300,35 +308,16 @@ function compile_expression(expr) {
   }
 }
 
-function hex_string(n) {
-  return n === 0 ? "0"
-       : n === 1 ? "1"
-       : n === 2 ? "2"
-       : n === 3 ? "3"
-       : n === 4 ? "4"
-       : n === 5 ? "5"
-       : n === 6 ? "6"
-       : n === 7 ? "7"
-       : n === 8 ? "8"
-       : n === 9 ? "9"
-       : n === 10 ? "A"
-       : n === 11 ? "B"
-       : n === 12 ? "C"
-       : n === 13 ? "D"
-       : n === 14 ? "E"
-       : "F";
-}
-
 function to_hex_and_pad(n, code) {
-  let res = "";
-  let count = 0;
-  while (n > 0) {
-      let a = math_floor(n / 16);
-      let b = n % 16;
-      res = hex_string(b) + res;
-      n = a;
-      count = count + 1;
-  }
+  let res = (n).toString(16);
+  let count = res.length;
+  // while (n > 0) {
+  //     let a = Math.floor(n / 16);
+  //     let b = n % 16;
+  //     res = hex_string(b) + res;
+  //     n = a;
+  //     count = count + 1;
+  // }
   if (code === "PUSH32") {
       if (count < 64) {
           const diff = 64 - count;
@@ -348,7 +337,6 @@ function to_hex_and_pad(n, code) {
 }
 
 function get_opcode(expr) {
-  display(expr);
   const code = head(expr);
   const data = tail(expr);
   // if (is_pair(data)) {
@@ -375,105 +363,11 @@ function get_opcode(expr) {
 
 function translate(lst) {
   const temp = map(get_opcode, lst);
-  display(temp);
   return accumulate((x, y) => (x + y), "", temp);
 }
 
 function parse_and_compile(string) {
-  return compile_program(parse(string));
+  return compile_program(parseNew(string));
 }
 
-// parse_and_compile("! (1 === 1 && 2 > 3);");
-// parse_and_compile("1 + 2 / 0;");
-// parse_and_compile("1 + 2 / 1;");
-// parse_and_compile("3 / 4;");
-
-// machine state: a pair consisting 
-// of an operand stack and a program counter,
-// following 3.5.3
-
-function make_state(stack, pc) {
-  return pair(stack, pc);
-}
-
-function get_stack(state) {
-  return head(state);
-}
-
-function get_pc(state) {
-  return tail(state);
-}
-
-// operations on the operand stack
-
-function empty_stack() {
-  return null;
-}
-
-function push(stack, value) {
-  return pair(value, stack);
-}
-
-function pop(stack) {
-  return tail(stack);
-}
-
-function top(stack) {
-  return head(stack);
-}
-
-// run the machine according to 3.5.3
-
-function run(code) {
-  const initial_state = make_state(empty_stack(), 0);
-  return transition(code, initial_state);
-}
-
-function transition(code, state) {
-  const pc = get_pc(state);
-  const stack = get_stack(state);
-  const instr = list_ref(code, pc);
-  if (op_code(instr) === "DONE") {
-      return top(stack);
-  } else {
-      return transition(code, make_state(next_stack(stack, instr), 
-                                         pc + 1));
-  }
-}
-
-function next_stack(stack, instr) {
-  const op = op_code(instr);
-  if (op === "COND_2") {
-      const eval_false = top(stack);
-      const eval_true = top(pop(stack));
-      const cond = top(pop(pop(stack)));
-      return push(pop(pop(pop(stack))), cond ? eval_true : eval_false);
-  } else {
-      return op === "PUSH32" ? push(stack, arg(instr))
-        : op === "LDCB" ? push(stack, arg(instr))
-        : op === "ADD" ? push(pop(pop(stack)), top(pop(stack)) + top(stack))
-        : op === "SUB" ? push(pop(pop(stack)), top(pop(stack)) - top(stack))
-        : op === "MUL" ? push(pop(pop(stack)), top(pop(stack)) * top(stack))
-        : op === "DIV" ? push(pop(pop(stack)), math_floor(top(pop(stack)) / 
-                                                          top(stack)))
-        : op === "NOT" ? push(pop(stack), ! top(stack))
-        : op === "EQ" ? push(pop(pop(stack)), top(pop(stack)) === top(stack))
-        : op === "LT" ? push(pop(pop(stack)), top(pop(stack)) < top(stack))
-        : op === "GT" ? push(pop(pop(stack)), top(pop(stack)) > top(stack))
-        : op === "AND" ? push(pop(pop(stack)), top(pop(stack)) && top(stack))
-        : /*op === "OR" ?*/ push(pop(pop(stack)), top(pop(stack)) || top(stack));
-  }
-}
-
-function parse_compile_and_run(string) {
-  const code = compile_program(parse(string));
-  return run(code);
-}
-
-// parse_and_compile('3+4;');
-translate(parse_and_compile('(12 + 3) < 10 ? 15+12+123-13 : 12 * 12 * 12;'));
-// translate(parse_and_compile('10/(13+44+123);'));
-// parse_and_compile("10/(2+3);");
-
-
-
+console.log(translate(parse_and_compile('123 + 123;')));

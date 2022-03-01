@@ -6,5 +6,8 @@
   },
   "scripts": {
     "test": "./scripts/test.sh"
+  },
+  "dependencies": {
+    "typescript": "^4.6.2"
   }
 }
