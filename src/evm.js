@@ -204,6 +204,11 @@ function compile_expression(expr) {
                             : op === ">" ? "GT"
                             : op === "&&" ? "AND"
                             : /*op === "||" ?*/ "OR";
+              if (op_code === "DIV") {
+                return append(compile_expression(operand_2),
+                        append(compile_expression(operand_1),
+                          list(make_simple_instruction(op_code))));
+                }
               return append(compile_expression(operand_1),
                             append(compile_expression(operand_2),
                                    list(make_simple_instruction(op_code))));
