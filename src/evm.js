@@ -24,179 +24,192 @@ binop   ::= + | - | * | / | < | >
 unop    ::= !
 */
 
-// Functions from SICP JS Section 4.1.2
-//with slight modifications
-
 
 function is_tagged_list(expr, the_tag) {
-    return is_pair(expr) && head(expr) === the_tag;
+  return is_pair(expr) && head(expr) === the_tag;
 }
 
 function make_literal(value) {
-    return list("literal", value);
+  return list("literal", value);
 }
 
 function is_literal(expr) {
-    return is_tagged_list(expr, "literal");
+  return is_tagged_list(expr, "literal");
 }
 
 function literal_value(expr) {
-    return head(tail(expr));
+  return head(tail(expr));
 }
 
 function is_operator_combination(expr) {
-   return is_unary_operator_combination(expr) ||
-          is_binary_operator_combination(expr);
+ return is_unary_operator_combination(expr) ||
+        is_binary_operator_combination(expr);
 }
 
 function is_unary_operator_combination(expr) {
-   return is_tagged_list(expr, "unary_operator_combination");
+ return is_tagged_list(expr, "unary_operator_combination");
 }
 
 // logical composition (&&, ||) is treated as binary operator combination
 function is_binary_operator_combination(expr) {
-   return is_tagged_list(expr, "binary_operator_combination") ||
-          is_tagged_list(expr, "logical_composition");
+ return is_tagged_list(expr, "binary_operator_combination") ||
+        is_tagged_list(expr, "logical_composition");
 }
 
 function is_conditional_combination(expr) {
-  return is_tagged_list(expr, "conditional_expression");
+return is_tagged_list(expr, "conditional_expression");
 }
 
 function operator(expr) {
-   return head(tail(expr));
+ return head(tail(expr));
 }
 
 function first_operand(expr) {
-   return head(tail(tail(expr)));
+ return head(tail(tail(expr)));
 }
 
 function second_operand(expr) {
-   return head(tail(tail(tail(expr))));
+ return head(tail(tail(tail(expr))));
 }
 
 // two new functions, not in 4.1.2
 
 function is_boolean_literal(expr) {
-    return is_tagged_list(expr, "literal") && 
-           is_boolean(literal_value(expr));
+  return is_tagged_list(expr, "literal") && 
+         is_boolean(literal_value(expr));
 }
 
 function is_number_literal(expr) {
-    return is_tagged_list(expr, "literal") && 
-           is_number(literal_value(expr));
+  return is_tagged_list(expr, "literal") && 
+         is_number(literal_value(expr));
 }
 
 // functions to represent virtual machine code
 
 function op_code(instr) {
-    return head(instr);
+  return head(instr);
 }
 
 function arg(instr) {
-    return head(tail(instr));
+  return head(tail(instr));
 }
 
 function make_simple_instruction(op_code) {
-    return list(op_code);
+  return list(op_code);
 }
 
 function DONE() {
-    return list("STOP");
+  return list("STOP");
 }
 
 function LDCI(i) {
-    return list("PUSH32", i);
+  return list("PUSH32", i);
+}
+
+function PUSH(i) {
+  return list("PUSH", i);
 }
 
 function LDCB(b) {
-    return list("LDCB", b);
+  return list("LDCB", b);
 }
 
 function PLUS() {
-    return list("ADD");
+  return list("ADD");
 }
 
 function MINUS() {
-    return list("SUB");
+  return list("SUB");
 }
 
 function TIMES() {
-    return list("MUL");
+  return list("MUL");
 }
 
 function DIV() {
-    return list("DIV");
+  return list("DIV");
 }
 
 function AND() {
-    return list("AND");
+  return list("AND");
 }
 
 function OR() {
-    return list("OR");
+  return list("OR");
 }
 
 function NOT() {
-    return list("NOT");
+  return list("NOT");
 }
 
 function LT() {
-    return list("LT");
+  return list("LT");
 }
 
 function GT() {
-    return list("GT");
+  return list("GT");
 }
 
 function EQ() {
-    return list("EQ");
+  return list("EQ");
+}
+
+function MSTORE() {
+  return list("MSTORE");
+}
+
+function RETURN() {
+  return list("RETURN");
 }
 
 // compile_program: see relation ->> in Section 3.5.2
 
+function final_return() {
+  return list(PUSH(0), MSTORE(), PUSH(32), PUSH(0), RETURN());
+}
+
 function compile_program(program) {
-    return append(compile_expression(program), list(DONE()));
+  return append(compile_expression(program), final_return());
 }
 
 // compile_expression: see relation hookarrow in 3.5.2
 
 function compile_expression(expr) {
-    if (is_number_literal(expr)) {
-        return list(LDCI(literal_value(expr)));
-    } else if (is_boolean_literal(expr)) {
-        return list(LDCB(literal_value(expr)));
-    } else {
-        const op = operator(expr);
-        const operand_1 = first_operand(expr);
-        if (op === "!") {
-            return append(compile_expression(operand_1),
-                          list(NOT()));
-        } else {
-            const operand_2 = second_operand(expr);
-            if (is_conditional_combination(expr) && is_boolean_literal(op)) {
-                return literal_value(op) ? compile_expression(operand_1) : compile_expression(operand_2);
-            } else if (is_conditional_combination(expr)) {
-                return append(compile_expression(op),
-                            append(compile_expression(operand_1),
-                                append(compile_expression(operand_2),
-                                    list(make_simple_instruction("COND_2")))));
-            } else {
-                const op_code = op === "+" ? "ADD"
-                              : op === "-" ? "SUB"
-                              : op === "*" ? "MUL"
-                              : op === "/" ? "DIV"
-                              : op === "===" ? "EQ"
-                              : op === "<" ? "LT"
-                              : op === ">" ? "GT"
-                              : op === "&&" ? "AND"
-                              : /*op === "||" ?*/ "OR";
-                return append(compile_expression(operand_1),
+  if (is_number_literal(expr)) {
+      return list(LDCI(literal_value(expr)));
+  } else if (is_boolean_literal(expr)) {
+      return list(LDCB(literal_value(expr)));
+  } else {
+      const op = operator(expr);
+      const operand_1 = first_operand(expr);
+      if (op === "!") {
+          return append(compile_expression(operand_1),
+                        list(NOT()));
+      } else {
+          const operand_2 = second_operand(expr);
+          if (is_conditional_combination(expr) && is_boolean_literal(op)) {
+              return literal_value(op) ? compile_expression(operand_1) : compile_expression(operand_2);
+          } else if (is_conditional_combination(expr)) {
+              return append(compile_expression(op),
+                          append(compile_expression(operand_1),
                               append(compile_expression(operand_2),
-                                     list(make_simple_instruction(op_code))));
-            }
-        }
-    }
+                                  list(make_simple_instruction("COND_2")))));
+          } else {
+              const op_code = op === "+" ? "ADD"
+                            : op === "-" ? "SUB"
+                            : op === "*" ? "MUL"
+                            : op === "/" ? "DIV"
+                            : op === "===" ? "EQ"
+                            : op === "<" ? "LT"
+                            : op === ">" ? "GT"
+                            : op === "&&" ? "AND"
+                            : /*op === "||" ?*/ "OR";
+              return append(compile_expression(operand_1),
+                            append(compile_expression(operand_2),
+                                   list(make_simple_instruction(op_code))));
+          }
+      }
+  }
 }
 
 function hex_string(n) {
@@ -218,7 +231,7 @@ function hex_string(n) {
        : "F";
 }
 
-function to_hex(n) {
+function to_hex_and_pad(n, code) {
   let res = "";
   let count = 0;
   while (n > 0) {
@@ -228,10 +241,19 @@ function to_hex(n) {
       n = a;
       count = count + 1;
   }
-  if (count < 64) {
-      const diff = 64 - count;
-      for (let i = 0; i < diff; i = i + 1) {
-          res = "0" + res;
+  if (code === "PUSH32") {
+      if (count < 64) {
+          const diff = 64 - count;
+          for (let i = 0; i < diff; i = i + 1) {
+              res = "0" + res;
+          }
+      }
+  } else {
+      if (count < 2) {
+          const diff = 2 - count;
+          for (let i = 0; i < diff; i = i + 1) {
+              res = "0" + res;
+          }
       }
   }
   return res;
@@ -244,25 +266,28 @@ function get_opcode(expr) {
   //     set_head(data, stringify(head(data)));
   // }
   return (code === "PUSH32" ? "7F"
+       : code === "PUSH" ? "60"
        : code === "ADD" ? "01"
        : code === "MUL" ? "02"
        : code === "SUB" ? "03"
        : code === "DIV" ? "04"
        : code === "EQ" ? "14"
+       : code === "MSTORE" ? "52"
+       : code === "RETURN" ? "F3"
        : "00") // STOP
-       + (is_pair(data) ? to_hex(head(data)) : "");
+       + (is_pair(data) ? to_hex_and_pad(head(data), code) : "");
 }
 
 function translate(lst) {
-    const temp = map(get_opcode, lst);
-    display(temp);
-    // const t2 = map(lst => accumulate((x, y) => (stringify(x) + y), "", lst), temp);
-    // return t2;
-    return accumulate((x, y) => (x + y), "", temp);
+  const temp = map(get_opcode, lst);
+  display(temp);
+  // const t2 = map(lst => accumulate((x, y) => (stringify(x) + y), "", lst), temp);
+  // return t2;
+  return accumulate((x, y) => (x + y), "", temp);
 }
 
 function parse_and_compile(string) {
-    return compile_program(parse(string));
+  return compile_program(parse(string));
 }
 
 // parse_and_compile("! (1 === 1 && 2 > 3);");
@@ -275,81 +300,84 @@ function parse_and_compile(string) {
 // following 3.5.3
 
 function make_state(stack, pc) {
-    return pair(stack, pc);
+  return pair(stack, pc);
 }
 
 function get_stack(state) {
-    return head(state);
+  return head(state);
 }
 
 function get_pc(state) {
-    return tail(state);
+  return tail(state);
 }
 
 // operations on the operand stack
 
 function empty_stack() {
-    return null;
+  return null;
 }
 
 function push(stack, value) {
-    return pair(value, stack);
+  return pair(value, stack);
 }
 
 function pop(stack) {
-    return tail(stack);
+  return tail(stack);
 }
 
 function top(stack) {
-    return head(stack);
+  return head(stack);
 }
 
 // run the machine according to 3.5.3
 
 function run(code) {
-    const initial_state = make_state(empty_stack(), 0);
-    return transition(code, initial_state);
+  const initial_state = make_state(empty_stack(), 0);
+  return transition(code, initial_state);
 }
 
 function transition(code, state) {
-    const pc = get_pc(state);
-    const stack = get_stack(state);
-    const instr = list_ref(code, pc);
-    if (op_code(instr) === "DONE") {
-        return top(stack);
-    } else {
-        return transition(code, make_state(next_stack(stack, instr), 
-                                           pc + 1));
-    }
+  const pc = get_pc(state);
+  const stack = get_stack(state);
+  const instr = list_ref(code, pc);
+  if (op_code(instr) === "DONE") {
+      return top(stack);
+  } else {
+      return transition(code, make_state(next_stack(stack, instr), 
+                                         pc + 1));
+  }
 }
 
 function next_stack(stack, instr) {
-    const op = op_code(instr);
-    if (op === "COND_2") {
-        const eval_false = top(stack);
-        const eval_true = top(pop(stack));
-        const cond = top(pop(pop(stack)));
-        return push(pop(pop(pop(stack))), cond ? eval_true : eval_false);
-    } else {
-        return op === "PUSH32" ? push(stack, arg(instr))
-          : op === "LDCB" ? push(stack, arg(instr))
-          : op === "ADD" ? push(pop(pop(stack)), top(pop(stack)) + top(stack))
-          : op === "SUB" ? push(pop(pop(stack)), top(pop(stack)) - top(stack))
-          : op === "MUL" ? push(pop(pop(stack)), top(pop(stack)) * top(stack))
-          : op === "DIV" ? push(pop(pop(stack)), math_floor(top(pop(stack)) / 
-                                                            top(stack)))
-          : op === "NOT" ? push(pop(stack), ! top(stack))
-          : op === "EQ" ? push(pop(pop(stack)), top(pop(stack)) === top(stack))
-          : op === "LT" ? push(pop(pop(stack)), top(pop(stack)) < top(stack))
-          : op === "GT" ? push(pop(pop(stack)), top(pop(stack)) > top(stack))
-          : op === "AND" ? push(pop(pop(stack)), top(pop(stack)) && top(stack))
-          : /*op === "OR" ?*/ push(pop(pop(stack)), top(pop(stack)) || top(stack));
-    }
+  const op = op_code(instr);
+  if (op === "COND_2") {
+      const eval_false = top(stack);
+      const eval_true = top(pop(stack));
+      const cond = top(pop(pop(stack)));
+      return push(pop(pop(pop(stack))), cond ? eval_true : eval_false);
+  } else {
+      return op === "PUSH32" ? push(stack, arg(instr))
+        : op === "LDCB" ? push(stack, arg(instr))
+        : op === "ADD" ? push(pop(pop(stack)), top(pop(stack)) + top(stack))
+        : op === "SUB" ? push(pop(pop(stack)), top(pop(stack)) - top(stack))
+        : op === "MUL" ? push(pop(pop(stack)), top(pop(stack)) * top(stack))
+        : op === "DIV" ? push(pop(pop(stack)), math_floor(top(pop(stack)) / 
+                                                          top(stack)))
+        : op === "NOT" ? push(pop(stack), ! top(stack))
+        : op === "EQ" ? push(pop(pop(stack)), top(pop(stack)) === top(stack))
+        : op === "LT" ? push(pop(pop(stack)), top(pop(stack)) < top(stack))
+        : op === "GT" ? push(pop(pop(stack)), top(pop(stack)) > top(stack))
+        : op === "AND" ? push(pop(pop(stack)), top(pop(stack)) && top(stack))
+        : /*op === "OR" ?*/ push(pop(pop(stack)), top(pop(stack)) || top(stack));
+  }
 }
 
 function parse_compile_and_run(string) {
-    const code = compile_program(parse(string));
-    return run(code);
+  const code = compile_program(parse(string));
+  return run(code);
 }
 
-translate(parse_and_compile('13+44;')); 
+// parse_and_compile('3+4;');
+translate(parse_and_compile('13+44+123;'));
+
+
