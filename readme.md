@@ -5,7 +5,8 @@ node src/evm_alt.ts
 ```
 
 - Every header is 32 bytes.
-- Every node value is at least 32 bytes, so every node is at least 64 byte.
+- Every `Node` value is at least 32 bytes, so every `Node` is at least 64 byte.
+- `Node`s are used for declarations only. Primitive calculators exist only on the stack only.
 
 ------
 
