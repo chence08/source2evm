@@ -3,7 +3,14 @@ import createContext from "js-slang/dist/createContext.js";
 import { pair, is_pair, head, tail, is_null, list, set_head, set_tail } from "js-slang/dist/stdlib/list";
 import { parse } from "js-slang/dist/stdlib/parser";
 
+import { PUSH32, LDCB, opCodes } from "./Opcode";
+
+import Node from "./Node";
+import { Integer, Boolean, Character } from "./Primitives";
+
 // console.log(parse('x => x * x;', createContext(4)));
+
+let GLOBAL_OFFSET = 0;
 
 function parseNew(x) {
   const res = parse(x, createContext());
@@ -37,7 +44,6 @@ function is_boolean(x) {
   return 'boolean' === typeof x;
 }
 
-
 function is_tagged_list(expr, the_tag) {
   return is_pair(expr) && head(expr) === the_tag;
 }
@@ -52,6 +58,10 @@ function is_literal(expr) {
 
 function literal_value(expr) {
   return head(tail(expr));
+}
+
+function symbol_of_name(stmt) {
+    return head(tail(stmt));
 }
 
 function is_operator_combination(expr) {
@@ -97,118 +107,37 @@ function is_number_literal(expr) {
          is_number(literal_value(expr));
 }
 
-// functions to represent virtual machine code
-
-function op_code(instr) {
-  return head(instr);
-}
-
-function arg(instr) {
-  return head(tail(instr));
-}
-
-function make_simple_instruction(op_code) {
-  return list(op_code);
-}
-
-function DONE() {
-  return list("STOP");
-}
-
-function LDCI(i) {
-  return list("PUSH32", i);
-}
-
-function PUSH(i) {
-  return list("PUSH", i);
-}
-
-function LDCB(b) {
-  return list("LDCB", b);
-}
-
-function PLUS() {
-  return list("ADD");
-}
-
-function MINUS() {
-  return list("SUB");
-}
-
-function TIMES() {
-  return list("MUL");
-}
-
-function DIV() {
-  return list("DIV");
-}
-
-function AND() {
-  return list("AND");
-}
-
-function OR() {
-  return list("OR");
-}
-
-function NOT() {
-  return list("NOT");
-}
-
-function LT() {
-  return list("LT");
-}
-
-function GT() {
-  return list("GT");
-}
-
-function EQ() {
-  return list("EQ");
-}
-
-function MSTORE() {
-  return list("MSTORE");
-}
-
-function PC() {
-  return list("PC");
-}
-
-function JUMPI() {
-  return list("JUMPI");
-}
-
-function JUMP() {
-  return list("JUMP");
-}
-
-function JUMPDEST() {
-  return list("JUMPDEST");
-}
-
-function RETURN() {
-  return list("RETURN");
-}
-
 // compile_program: see relation ->> in Section 3.5.2
 
 function final_return() {
-  return list(PUSH(0), MSTORE(), PUSH(32), PUSH(0), RETURN());
+  return PUSH32(0) + opCodes.MSTORE + PUSH32(32) + PUSH32(0) + opCodes.RETURN;
 }
 
 function compile_program(program) {
-  return append(compile_expression(program), final_return());
+  return compile_expression(program) + final_return();
 }
 
-// compile_expression: see relation hookarrow in 3.5.2
-
 function make_jump_immediate(offset) {
-  return list(PC(), PUSH(offset), PLUS(), JUMP());
+  return opCodes.PC + PUSH32(offset) + opCodes.ADD + opCodes.JUMP;
 }
 
 function make_jump_condition(offset, condition) {
-  return append(condition, list(PC(), PUSH(offset), PLUS(), JUMPI()));
+  return condition + opCodes.PC + PUSH32(offset) + opCodes.ADD + opCodes.JUMPI;
+}
+
+// DECLARATIONS
+
+function is_constant_declaration(stmt) {
+   return is_tagged_list(stmt, "constant_declaration");
+}
+function is_variable_declaration(component) {
+    return is_tagged_list(component, "variable_declaration");
+}
+function declaration_symbol(component) {
+   return symbol_of_name(head(tail(component)));
+}
+function declaration_value(stmt) {
+   return head(tail(head(tail(tail(stmt)))));
 }
 
 
@@ -258,22 +187,48 @@ function compile_conditional(expr) {
   // add
   const cond = compile_expression(op);
   
-  return append(make_jump_condition(op2_length + 5, cond), append(op2_code, 
-      append(make_jump_immediate(op1_length + 5), append(op1_code, list(JUMPDEST())))));
+  return make_jump_condition(op2_length + 5, cond) 
+      + op2_code
+      + make_jump_immediate(op1_length + 5)
+      + op1_code
+      + opCodes.JUMPDEST;
   
 }
 
-function compile_expression(expr) {
+let constants = {} // look-up table for constants
+
+function compile_expression(expr): string {
   if (is_number_literal(expr)) {
-      return list(LDCI(literal_value(expr)));
+      return PUSH32(literal_value(expr));
   } else if (is_boolean_literal(expr)) {
-      return list(LDCB(literal_value(expr)));
+      return LDCB(literal_value(expr));
+  } else if (is_variable_declaration(expr)) {
+      const symbol = declaration_symbol(expr);
+      const value = declaration_value(expr);
+      const node = is_number(value)
+          ? new Integer(value)
+          : is_boolean(value)
+          ? new Boolean(value)
+          : undefined;
+      if (node === undefined) {
+        console.log(value);
+        console.log(expr);
+        
+        console.log(node);
+        return "00";
+      }
+      const res = node.pushToMem(GLOBAL_OFFSET);
+      GLOBAL_OFFSET = res[0];
+
+      // store res[1] to lookup/env
+      return res[2];
+      
   } else {
       const op = operator(expr);
+      console.log(expr);
       const operand_1 = first_operand(expr);
       if (op === "!") {
-          return append(compile_expression(operand_1),
-                        list(NOT()));
+          return compile_expression(operand_1) + opCodes.NOT;
       } else {
           const operand_2 = second_operand(expr);
           if (is_conditional_combination(expr) && is_boolean_literal(op)) {
@@ -295,14 +250,14 @@ function compile_expression(expr) {
                             : op === "&&" ? "AND"
                             : /*op === "||" ?*/ "OR";
               if (op_code === "DIV" || op_code === "LT" || op_code === "GT") {
-                  return append(compile_expression(operand_2),
-                          append(compile_expression(operand_1),
-                           list(make_simple_instruction(op_code))));
+                  return compile_expression(operand_2)
+                         + compile_expression(operand_1)
+                         + op_code;
 
               }
-              return append(compile_expression(operand_1),
-                            append(compile_expression(operand_2),
-                                   list(make_simple_instruction(op_code))));
+              return compile_expression(operand_1)
+                    + compile_expression(operand_2)
+                    + op_code;
           }
       }
   }
@@ -342,22 +297,7 @@ function get_opcode(expr) {
   // if (is_pair(data)) {
   //     set_head(data, stringify(head(data)));
   // }
-  return (code === "PUSH32" ? "7F"
-       : code === "PUSH" ? "60"
-       : code === "ADD" ? "01"
-       : code === "MUL" ? "02"
-       : code === "SUB" ? "03"
-       : code === "DIV" ? "04"
-       : code === "EQ" ? "14"
-       : code === "LT" ? "10"
-       : code === "GT" ? "11"
-       : code === "MSTORE" ? "52"
-       : code === "RETURN" ? "F3"
-       : code === "PC" ? "58"
-       : code === "JUMP" ? "56"
-       : code === "JUMPI" ? "57"
-       : code === "JUMPDEST" ? "5B"
-       : "00") // STOP
+  return opCodes[code]
        + (is_pair(data) && is_number(head(data)) ? to_hex_and_pad(head(data), code) : "");
 }
 
@@ -370,4 +310,5 @@ function parse_and_compile(string) {
   return compile_program(parseNew(string));
 }
 
-console.log(translate(parse_and_compile('123 + 123;')));
+
+console.log(parse_and_compile('let x = 5;'));
