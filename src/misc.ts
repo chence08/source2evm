@@ -20,3 +20,6 @@ export function getLastChildByteCode(offset: number): string {
   return opCodes.PUSH32 + zeroPad(offset + 32 * 3, 64) + opCodes.MLOAD;
 }
 
+export function getSingleHeapValue(offset: number): string {
+  return opCodes.PUSH32 + zeroPad(offset + 32 * 4, 64) + opCodes.MLOAD;
+}

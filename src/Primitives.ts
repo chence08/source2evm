@@ -18,8 +18,8 @@ export class Integer extends Node {
   pushToMem(offset: number): [number, number, string] {
     return [offset + super.size, offset, 
             super.storeHeader(offset) 
-            + PUSH32(this.value)
-            + PUSH32(offset + 64 * 4)
+            + PUSH32(zeroPad(this.value, 64))
+            + PUSH32(zeroPad(offset + 32 * 4, 64))
             + opCodes.MSTORE];
   }
 }
@@ -35,8 +35,8 @@ export class Boolean extends Node {
   pushToMem(offset: number): [number, number, string] {
     return [offset + super.size, offset, 
             super.storeHeader(offset) 
-            + PUSH32(this.value)
-            + PUSH32(offset + 64 * 4)
+            + PUSH32(zeroPad(this.value, 64))
+            + PUSH32(zeroPad(offset + 32 * 4, 64))
             + opCodes.MSTORE];
   }
 
@@ -53,8 +53,8 @@ export class Character extends Node {
   pushToMem(offset: number): [number, number, string] {
     return [offset + super.size, offset, 
             super.storeHeader(offset) 
-            + PUSH32(this.value)
-            + PUSH32(offset + 64 * 4)
+            + PUSH32(zeroPad(this.value, 64))
+            + PUSH32(zeroPad(offset + 32 * 4, 64))
             + opCodes.MSTORE];
   }
 

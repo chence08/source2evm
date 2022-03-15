@@ -21,7 +21,9 @@ export const opCodes = {
   "JUMPI" : "57",
   "JUMPDEST" : "5B",
   "STOP" : "00",
-  "NOT" : "19"
+  "NOT" : "19", 
+  "AND" : "16", 
+  "OR" : "17"
 }
 
 export function PUSH32(i: number): string {

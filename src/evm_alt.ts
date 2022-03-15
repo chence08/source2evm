@@ -8,9 +8,14 @@ import { PUSH32, LDCB, opCodes } from "./Opcode";
 import Node from "./Node";
 import { Integer, Boolean, Character } from "./Primitives";
 
+import NameLookupTable from "./NameLookupTable";
+
+import { getSingleHeapValue } from "./misc";
+
 // console.log(parse('x => x * x;', createContext(4)));
 
 let GLOBAL_OFFSET = 0;
+let LOOKUP_TABLE = {};
 
 function parseNew(x) {
   const res = parse(x, createContext());
@@ -60,6 +65,10 @@ function literal_value(expr) {
   return head(tail(expr));
 }
 
+function is_name(stmt) {
+  return is_tagged_list(stmt, "name");
+}
+
 function symbol_of_name(stmt) {
     return head(tail(stmt));
 }
@@ -77,6 +86,30 @@ function is_unary_operator_combination(expr) {
 function is_binary_operator_combination(expr) {
  return is_tagged_list(expr, "binary_operator_combination") ||
         is_tagged_list(expr, "logical_composition");
+}
+
+function is_sequence(stmt) {
+ return is_tagged_list(stmt, "sequence");
+}
+
+function sequence_statements(stmt) {   
+ return head(tail(stmt));
+}
+
+function is_empty_sequence(stmts) {
+ return is_null(stmts);
+}
+
+function is_last_statement(stmts) {
+ return is_null(tail(stmts));
+}
+
+function first_statement(stmts) {
+ return head(stmts);
+}
+
+function rest_statements(stmts) {
+ return tail(stmts);
 }
 
 function is_conditional_combination(expr) {
@@ -140,6 +173,12 @@ function declaration_value(stmt) {
    return head(tail(head(tail(tail(stmt)))));
 }
 
+function compile_sequence(expr) {
+  // compile for each statement, starting from 1st
+  const statements = sequence_statements(expr);
+  const code = map(compile_expression, statements);
+  return accumulate((x, y) => x + y, "", code);
+}
 
 function count_opcode_length(code) {
   if (head(code) === "PUSH32") {
@@ -205,6 +244,7 @@ function compile_expression(expr): string {
   } else if (is_variable_declaration(expr)) {
       const symbol = declaration_symbol(expr);
       const value = declaration_value(expr);
+    
       const node = is_number(value)
           ? new Integer(value)
           : is_boolean(value)
@@ -217,12 +257,19 @@ function compile_expression(expr): string {
         console.log(node);
         return "00";
       }
+      console.log(symbol);
       const res = node.pushToMem(GLOBAL_OFFSET);
       GLOBAL_OFFSET = res[0];
-
+      LOOKUP_TABLE[symbol] = res[1];
       // store res[1] to lookup/env
       return res[2];
       
+  } else if (is_name(expr)) {
+    const name = symbol_of_name(expr);
+    const offset = LOOKUP_TABLE[name];
+    return getSingleHeapValue(offset);
+  } else if (is_sequence(expr)) {
+    return compile_sequence(expr);
   } else {
       const op = operator(expr);
       console.log(expr);
@@ -240,16 +287,16 @@ function compile_expression(expr): string {
               //                 append(compile_expression(operand_2),
               //                     list(make_simple_instruction("COND_2")))));
           } else {
-              const op_code = op === "+" ? "ADD"
-                            : op === "-" ? "SUB"
-                            : op === "*" ? "MUL"
-                            : op === "/" ? "DIV"
-                            : op === "===" ? "EQ"
-                            : op === "<" ? "LT"
-                            : op === ">" ? "GT"
-                            : op === "&&" ? "AND"
-                            : /*op === "||" ?*/ "OR";
-              if (op_code === "DIV" || op_code === "LT" || op_code === "GT") {
+              const op_code = op === "+" ? opCodes.ADD
+                            : op === "-" ? opCodes.SUB
+                            : op === "*" ? opCodes.MUL
+                            : op === "/" ? opCodes.DIV
+                            : op === "===" ? opCodes.EQ
+                            : op === "<" ? opCodes.LT
+                            : op === ">" ? opCodes.GT
+                            : op === "&&" ? opCodes.AND
+                            : /*op === "||" ?*/ opCodes.OR;
+              if (op_code === opCodes.DIV || op_code === opCodes.LT || op_code === opCodes.GT) {
                   return compile_expression(operand_2)
                          + compile_expression(operand_1)
                          + op_code;
@@ -274,21 +321,19 @@ function to_hex_and_pad(n, code) {
   //     count = count + 1;
   // }
   if (code === "PUSH32") {
-      return res.padStart(64, '0');
-      // if (count < 64) {
-      //     const diff = 64 - count;
-      //     for (let i = 0; i < diff; i = i + 1) {
-      //         res = "0" + res;
-      //     }
-      // }
+      if (count < 64) {
+          const diff = 64 - count;
+          for (let i = 0; i < diff; i = i + 1) {
+              res = "0" + res;
+          }
+      }
   } else {
-    return res.padStart(2, '0');
-      // if (count < 2) {
-      //     const diff = 2 - count;
-      //     for (let i = 0; i < diff; i = i + 1) {
-      //         res = "0" + res;
-      //     }
-      // }
+      if (count < 2) {
+          const diff = 2 - count;
+          for (let i = 0; i < diff; i = i + 1) {
+              res = "0" + res;
+          }
+      }
   }
   return res;
 }
@@ -313,4 +358,4 @@ function parse_and_compile(string) {
 }
 
 
-console.log(parse_and_compile('let x = 5;'));
+console.log(parse_and_compile('let x = 1; x + 3;'));
