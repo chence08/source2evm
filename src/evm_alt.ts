@@ -319,19 +319,21 @@ function to_hex_and_pad(n, code) {
   //     count = count + 1;
   // }
   if (code === "PUSH32") {
-      if (count < 64) {
-          const diff = 64 - count;
-          for (let i = 0; i < diff; i = i + 1) {
-              res = "0" + res;
-          }
-      }
+      return res.padStart(64, '0');
+      // if (count < 64) {
+      //     const diff = 64 - count;
+      //     for (let i = 0; i < diff; i = i + 1) {
+      //         res = "0" + res;
+      //     }
+      // }
   } else {
-      if (count < 2) {
-          const diff = 2 - count;
-          for (let i = 0; i < diff; i = i + 1) {
-              res = "0" + res;
-          }
-      }
+    return res.padStart(2, '0');
+      // if (count < 2) {
+      //     const diff = 2 - count;
+      //     for (let i = 0; i < diff; i = i + 1) {
+      //         res = "0" + res;
+      //     }
+      // }
   }
   return res;
 }
@@ -370,4 +372,4 @@ function parse_and_compile(string) {
   return compile_program(parseNew(string));
 }
 
-console.log(translate(parse_and_compile('123 + 123;')));
+console.log(translate(parse_and_compile('123;')));
