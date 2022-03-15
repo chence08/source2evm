@@ -1,0 +1,2 @@
+language = "nodejs"
+run = "bash ./scripts/compile_and_run.sh"

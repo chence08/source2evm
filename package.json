@@ -5,7 +5,8 @@
     "js-slang": "^0.4.71"
   },
   "scripts": {
-    "test": "./scripts/test.sh"
+    "test": "./scripts/test.sh",
+    "compileRun": "./scripts/compile_and_run.sh"
   },
   "dependencies": {
     "typescript": "^4.6.2"
