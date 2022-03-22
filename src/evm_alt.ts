@@ -16,6 +16,8 @@ import { getSingleHeapValue } from "./misc";
 
 let GLOBAL_OFFSET = 0;
 let LOOKUP_TABLE = {};
+// let CONST_OFFSET = 1;
+let constants = "";
 
 function parseNew(x) {
   const res = parse(x, createContext());
@@ -147,7 +149,8 @@ function final_return() {
 }
 
 function compile_program(program) {
-  return compile_expression(program) + final_return();
+  let closure_lookup = new Environment();
+  return compile_expression(program, closure_lookup) + final_return();
 }
 
 function make_jump_immediate(offset) {
@@ -172,11 +175,15 @@ function declaration_symbol(component) {
 function declaration_value(stmt) {
    return head(tail(head(tail(tail(stmt)))));
 }
+function constant_declaration_value(stmt) {
+ return head(tail(tail(stmt)));
+}
 
-function compile_sequence(expr) {
+
+function compile_sequence(expr, closure_lookup) {
   // compile for each statement, starting from 1st
   const statements = sequence_statements(expr);
-  const code = map(compile_expression, statements);
+  const code = map(x => compile_expression(x, closure_lookup), statements);
   return accumulate((x, y) => x + y, "", code);
 }
 
@@ -196,17 +203,17 @@ function count_length(code) {
       a + b, 0, map(count_opcode_length, code));
 }
 
-function compile_conditional(expr) {
+function compile_conditional(expr, closure_lookup) {
   const op = operator(expr);
   const operand_1 = first_operand(expr);
   const operand_2 = second_operand(expr);
 
   if (is_boolean_literal(op)) {
-      return literal_value(op) ? compile_expression(operand_1) : compile_expression(operand_2);
+      return literal_value(op) ? compile_expression(operand_1, closure_lookup) : compile_expression(operand_2, closure_lookup);
   }
   
-  const op1_code = compile_expression(operand_1);
-  const op2_code = compile_expression(operand_2);
+  const op1_code = compile_expression(operand_1, closure_lookup);
+  const op2_code = compile_expression(operand_2, closure_lookup);
   const op1_length = count_length(op1_code);
   const op2_length = count_length(op2_code);
   
@@ -224,7 +231,7 @@ function compile_conditional(expr) {
   // PC
   // offset
   // add
-  const cond = compile_expression(op);
+  const cond = compile_expression(op, closure_lookup);
   
   return make_jump_condition(op2_length + 5, cond) 
       + op2_code
@@ -234,9 +241,79 @@ function compile_conditional(expr) {
   
 }
 
-let constants = {} // look-up table for constants
+/*
+const x = 5;
+function f(a,b,c) {return x;}
+f(0,1,2);
+// expected: 5
 
-function compile_expression(expr): string {
+push 5
+PC
+store pc + i to rtn
+push y
+jump f
+done
+// func
+jumpdest
+load x
+load rtn
+jump
+
+[ "sequence",
+[ [ ["constant_declaration", [["name", ["x", null]], [["literal", [5, null]], null]]],
+  [ [ "function_declaration",
+    [ ["name", ["f", null]],
+    [ [["name", ["a", null]], [["name", ["b", null]], [["name", ["c", null]], null]]],
+    [["return_statement", [["name", ["x", null]], null]], null]]]],
+  [ [ "application",
+    [ ["name", ["f", null]],
+    [ [["literal", [0, null]], [["literal", [1, null]], [["literal", [2, null]], null]]],
+    null]]],
+  null]]],
+null]]
+*/
+
+let constants = {}; // look-up table for constants
+
+function compile_constant(expr, closure_lookup) {
+  // let local_const = {};
+  
+  const name = declaration_symbol(expr);
+  const body = compile_expression(constant_declaration_value(expr), closure_lookup);
+  
+  closure_lookup.insert(name, CONST_OFFSET);
+  // mload rtn
+  // jump
+  constants = constants + body + PUSH(0) + opCodes['MLOAD'] + opCodes['JUMP'];
+  
+  CONST_OFFSET = constants.length / 2;
+  
+  return "";
+}
+
+function compile_lambda_expression(expr, closure_lookup) {
+    const the_body = lambda_body(expr);
+    const body = is_block(the_body) ? block_body(the_body) : the_body;
+    const locals = scan_out_declarations(body);
+    const parameters = lambda_parameter_symbols(expr);
+    let new_env = new Environment(upper_scope=closure_lookup);
+    const extended_index_table =
+        accumulate((s, it) => extend_index_table(it, s),
+                   index_table,
+                   append(reverse(locals), 
+                          reverse(parameters)));
+    // add_ternary_instruction(LDF, NaN, NaN, 
+    //                        length(parameters) + length(locals));
+    // const max_stack_size_address = insert_pointer - 3;
+    const address_address = insert_pointer - 2;
+    push_to_compile(make_to_compile_task(
+                        body, max_stack_size_address, 
+                        address_address, extended_index_table));
+    return 1;
+}
+
+
+function compile_expression(expr, closure_lookup): string {
   if (is_number_literal(expr)) {
       return PUSH32(literal_value(expr));
   } else if (is_boolean_literal(expr)) {
@@ -269,17 +346,21 @@ function compile_expression(expr): string {
     const offset = LOOKUP_TABLE[name];
     return getSingleHeapValue(offset);
   } else if (is_sequence(expr)) {
-    return compile_sequence(expr);
+    return compile_sequence(expr, closure_lookup);
+  } else if (is_function_declaration(expr)) {
+    return compile_expression(function_decl_to_constant_decl(expr), closure_lookup);
+  } else if (is_constant_declaration(expr)) {
+    return compile_constant(expr);
   } else {
       const op = operator(expr);
       console.log(expr);
       const operand_1 = first_operand(expr);
       if (op === "!") {
-          return compile_expression(operand_1) + opCodes.NOT;
+          return compile_expression(operand_1, closure_lookup) + opCodes.NOT;
       } else {
           const operand_2 = second_operand(expr);
           if (is_conditional_combination(expr) && is_boolean_literal(op)) {
-              return literal_value(op) ? compile_expression(operand_1) : compile_expression(operand_2);
+              return literal_value(op) ? compile_expression(operand_1, closure_lookup) : compile_expression(operand_2, closure_lookup);
           } else if (is_conditional_combination(expr)) {
               return compile_conditional(expr);
               // return append(compile_expression(op),
@@ -297,13 +378,13 @@ function compile_expression(expr): string {
                             : op === "&&" ? opCodes.AND
                             : /*op === "||" ?*/ opCodes.OR;
               if (op_code === opCodes.DIV || op_code === opCodes.LT || op_code === opCodes.GT) {
-                  return compile_expression(operand_2)
-                         + compile_expression(operand_1)
+                  return compile_expression(operand_2, closure_lookup)
+                         + compile_expression(operand_1, closure_lookup)
                          + op_code;
 
               }
-              return compile_expression(operand_1)
-                    + compile_expression(operand_2)
+              return compile_expression(operand_1, closure_lookup)
+                    + compile_expression(operand_2, closure_lookup)
                     + op_code;
           }
       }

@@ -30,6 +30,10 @@ export function PUSH32(i: number): string {
   return opCodes.PUSH32 + zeroPad(i, 64);
 }
 
+export function PUSH(i: number): string {
+  return opCodes.PUSH + zeroPad(i, 2);
+}
+
 export function LDCB(b: boolean): string {
   return b ? PUSH32(1) : PUSH32(0);
 }
