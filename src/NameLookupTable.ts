@@ -3,7 +3,7 @@ class CompileTimeEnv {
 }
 
 export default class Environment {
-  locals: Record<string, number | Environment>;
+  locals: Record<string, number>;
   constructor(localNames: [string]) {
     this.locals = {};
     localNames.forEach(x => this.locals[x] = -1);

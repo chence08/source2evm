@@ -7,14 +7,28 @@ const parser_1 = require("js-slang/dist/stdlib/parser");
 const Opcode_1 = require("./Opcode");
 const Primitives_1 = require("./Primitives");
 const misc_1 = require("./misc");
+const Environment_1 = require("./Environment");
 // console.log(parse('x => x * x;', createContext(4)));
-let GLOBAL_OFFSET = 0;
+let GLOBAL_OFFSET = 32;
 let LOOKUP_TABLE = {};
-// let CONST_OFFSET = 1;
+let CONST_OFFSET = 1;
 let constants = "";
 function parseNew(x) {
     const res = (0, parser_1.parse)(x, (0, createContext_js_1.default)());
     return res;
+}
+function list_to_arr(x) {
+    let arr = [];
+    while (!(0, list_1.is_null)(x)) {
+        arr.push((0, list_1.head)(x));
+        x = (0, list_1.tail)(x);
+    }
+    return arr;
+}
+function list_ref(items, n) {
+    return n === 0
+        ? (0, list_1.head)(items)
+        : list_ref((0, list_1.tail)(items), n - 1);
 }
 function append(x, y) {
     return (0, list_1.is_null)(x)
@@ -106,12 +120,47 @@ function is_number_literal(expr) {
     return is_tagged_list(expr, "literal") &&
         is_number(literal_value(expr));
 }
-// compile_program: see relation ->> in Section 3.5.2
+function is_lambda_expression(component) {
+    return is_tagged_list(component, "lambda_expression");
+}
+function lambda_parameter_symbols(component) {
+    return map(symbol_of_name, (0, list_1.head)((0, list_1.tail)(component)));
+}
+function lambda_body(component) {
+    return (0, list_1.head)((0, list_1.tail)((0, list_1.tail)(component)));
+}
+function make_lambda_expression(parameters, body) {
+    return (0, list_1.list)("lambda_expression", parameters, body);
+}
+function is_block(component) {
+    return is_tagged_list(component, "block");
+}
+function block_body(component) {
+    return (0, list_1.head)((0, list_1.tail)(component));
+}
+function is_function_declaration(component) {
+    return is_tagged_list(component, "function_declaration");
+}
+function function_declaration_name(component) {
+    return list_ref(component, 1);
+}
+function function_declaration_parameters(component) {
+    return list_ref(component, 2);
+}
+function function_declaration_body(component) {
+    return list_ref(component, 3);
+}
+function make_constant_declaration(name, value_expression) {
+    return (0, list_1.list)("constant_declaration", name, value_expression);
+}
+function function_decl_to_constant_decl(component) {
+    return make_constant_declaration(function_declaration_name(component), make_lambda_expression(function_declaration_parameters(component), function_declaration_body(component)));
+}
 function final_return() {
     return (0, Opcode_1.PUSH32)(0) + Opcode_1.opCodes.MSTORE + (0, Opcode_1.PUSH32)(32) + (0, Opcode_1.PUSH32)(0) + Opcode_1.opCodes.RETURN;
 }
 function compile_program(program) {
-    let closure_lookup = new Environment();
+    let closure_lookup = new Environment_1.default();
     return compile_expression(program, closure_lookup) + final_return();
 }
 function make_jump_immediate(offset) {
@@ -120,9 +169,21 @@ function make_jump_immediate(offset) {
 function make_jump_condition(offset, condition) {
     return condition + Opcode_1.opCodes.PC + (0, Opcode_1.PUSH32)(offset) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMPI;
 }
+function scan_out_declarations(component) {
+    return is_sequence(component)
+        ? accumulate(append, null, map(scan_out_declarations, sequence_statements(component)))
+        : is_declaration(component)
+            ? (0, list_1.list)(declaration_symbol(component))
+            : null;
+}
 // DECLARATIONS
 function is_constant_declaration(stmt) {
     return is_tagged_list(stmt, "constant_declaration");
+}
+function is_declaration(component) {
+    return is_tagged_list(component, "constant_declaration") ||
+        is_tagged_list(component, "variable_declaration") ||
+        is_tagged_list(component, "function_declaration");
 }
 function is_variable_declaration(component) {
     return is_tagged_list(component, "variable_declaration");
@@ -180,6 +241,9 @@ function compile_conditional(expr, closure_lookup) {
     // PC
     // offset
     // add
+    // cond
+    // PC + length
+    // jumpi 
     const cond = compile_expression(op, closure_lookup);
     return make_jump_condition(op2_length + 5, cond)
         + op2_code
@@ -218,31 +282,48 @@ jump
   null]]],
 null]]
 */
-let constants = {}; // look-up table for constants
+// let constants = {}; // look-up table for constants
 function compile_constant(expr, closure_lookup) {
     // let local_const = {};
+    console.log(expr);
+    console.log(declaration_symbol(expr));
     const name = declaration_symbol(expr);
     const body = compile_expression(constant_declaration_value(expr), closure_lookup);
     closure_lookup.insert(name, CONST_OFFSET);
     // mload rtn
     // jump
-    constants = constants + body + PUSH(0) + Opcode_1.opCodes['MLOAD'] + Opcode_1.opCodes['JUMP'];
+    constants = constants + body + (0, Opcode_1.PUSH)(0) + Opcode_1.opCodes['MLOAD'] + Opcode_1.opCodes['JUMP'];
     CONST_OFFSET = constants.length / 2;
     return "";
 }
 function compile_lambda_expression(expr, closure_lookup) {
     const the_body = lambda_body(expr);
     const body = is_block(the_body) ? block_body(the_body) : the_body;
-    const locals = scan_out_declarations(body);
-    const parameters = lambda_parameter_symbols(expr);
-    let new_env = new Environment(upper_scope = closure_lookup);
-    const extended_index_table = accumulate((s, it) => extend_index_table(it, s), index_table, append(reverse(locals), reverse(parameters)));
+    // const locals = scan_out_declarations(body);
+    let extended_env = new Environment_1.default(closure_lookup);
+    // list of params
+    const parameters = list_to_arr(lambda_parameter_symbols(expr)).reverse();
+    let map_params = "";
+    // all params are on stack, in reverse order, i.e. last argument on top
+    for (const x of parameters) {
+        map_params = map_params + (0, Opcode_1.PUSH32)(GLOBAL_OFFSET) + Opcode_1.opCodes.MSTORE;
+        extended_env.insert(x, GLOBAL_OFFSET);
+        GLOBAL_OFFSET += 32;
+    }
+    return compile_expression(body, extended_env);
+    // const extended_index_table =
+    //     accumulate((s, it) => extend_index_table(it, s),
+    //                index_table,
+    //                append(reverse(locals), 
+    //                       reverse(parameters)));
     // add_ternary_instruction(LDF, NaN, NaN, 
     //                        length(parameters) + length(locals));
     // const max_stack_size_address = insert_pointer - 3;
-    const address_address = insert_pointer - 2;
-    push_to_compile(make_to_compile_task(body, max_stack_size_address, address_address, extended_index_table));
-    return 1;
+    // const address_address = insert_pointer - 2;
+    // push_to_compile(make_to_compile_task(
+    //                     body, max_stack_size_address, 
+    //                     address_address, extended_index_table));
+    // return ;
 }
 function compile_expression(expr, closure_lookup) {
     if (is_number_literal(expr)) {
@@ -268,7 +349,7 @@ function compile_expression(expr, closure_lookup) {
         console.log(symbol);
         const res = node.pushToMem(GLOBAL_OFFSET);
         GLOBAL_OFFSET = res[0];
-        LOOKUP_TABLE[symbol] = res[1];
+        closure_lookup.insert(symbol, res[1]);
         // store res[1] to lookup/env
         return res[2];
     }
@@ -284,7 +365,7 @@ function compile_expression(expr, closure_lookup) {
         return compile_expression(function_decl_to_constant_decl(expr), closure_lookup);
     }
     else if (is_constant_declaration(expr)) {
-        return compile_constant(expr);
+        return compile_constant(expr, closure_lookup);
     }
     else {
         const op = operator(expr);
@@ -299,7 +380,7 @@ function compile_expression(expr, closure_lookup) {
                 return literal_value(op) ? compile_expression(operand_1, closure_lookup) : compile_expression(operand_2, closure_lookup);
             }
             else if (is_conditional_combination(expr)) {
-                return compile_conditional(expr);
+                return compile_conditional(expr, closure_lookup);
                 // return append(compile_expression(op),
                 //             append(compile_expression(operand_1),
                 //                 append(compile_expression(operand_2),
@@ -371,4 +452,5 @@ function translate(lst) {
 function parse_and_compile(string) {
     return compile_program(parseNew(string));
 }
-console.log(parse_and_compile('let x = 1; x + 3;'));
+console.log(parse_and_compile('const x = 1;'));
+console.log(constants);
