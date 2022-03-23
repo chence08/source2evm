@@ -210,9 +210,9 @@ function final_return() {
 function compile_program(program) {
   let closure_lookup = new Environment();
   const body = compile_expression(program, closure_lookup) + final_return();
-  const length_of_constants = constants.length / 2 + 3;
+  const length_of_constants = constants.length / 2 + 5;
 
-  return PUSH(length_of_constants) + opCodes.JUMP +
+  return PUSH(0) + PUSH(length_of_constants) + opCodes.JUMP + constants + opCodes.JUMPDEST + body;
   
 }
 
@@ -263,7 +263,7 @@ function constant_declaration_value(stmt) {
 function compile_sequence(expr, closure_lookup) {
   // compile for each statement, starting from 1st
   const statements = sequence_statements(expr);
-  const declarations = list_to_array(scan_out_declarations(expr));
+  const declarations = list_to_arr(scan_out_declarations(expr));
   for (let i = 0; i < declarations.length; i++) {
     closure_lookup.insert(declarations[i], (i+1) * 32);
   }
@@ -426,26 +426,28 @@ function compile_expression(expr, closure_lookup): string {
     const symbol = declaration_symbol(expr);
     const value = declaration_value(expr);
     
-    const offset = closure_lookup.search(symbol);
+    const frame_offset = closure_lookup.frame_offset;
+    const offset = closure_lookup.search(symbol) + frame_offset;
 
     return is_number_literal(value)
             ? PUSH32(literal_value(value))
             : is_boolean_literal(value)
             ? LDCB(literal_value(value))
-            : undefined;
-      if (node === undefined) {
-        console.log(value);
-        console.log(expr);
+            : undefined
+            + PUSH32(offset) + opCodes.MSTORE;
+      // if (node === undefined) {
+      //   console.log(value);
+      //   console.log(expr);
         
-        console.log(node);
-        return "00";
-      }
-      console.log(symbol);
-      const res = node.pushToMem(GLOBAL_OFFSET);
-      GLOBAL_OFFSET = res[0];
-      closure_lookup.insert(symbol, res[1]);
-      // store res[1] to lookup/env
-      return res[2];
+      //   console.log(node);
+      //   return "00";
+      // }
+      // console.log(symbol);
+      // const res = node.pushToMem(GLOBAL_OFFSET);
+      // GLOBAL_OFFSET = res[0];
+      // closure_lookup.insert(symbol, res[1]);
+      // // store res[1] to lookup/env
+      // return res[2];
       
   } else if (is_name(expr)) {
     const name = symbol_of_name(expr);

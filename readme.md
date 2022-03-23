@@ -45,7 +45,7 @@ Reason:
 6000
 ```
 
-## Return
+## Termination Step
 
 ```
 60005260206000F3
@@ -53,39 +53,40 @@ Reason:
 
 # Sample evm bytecodes
 
-1. `return 4 + 5;`
+1. `4 + 5;`
 
   ```
-  60007F\
+  6000\
+  7F\
   0000000000000000000000000000000000000000000000000000000000000004\
   7F\
   0000000000000000000000000000000000000000000000000000000000000005\
   01\
   60\
-  00\
+  01\
   52\
   60\
   20\
   60\
-  00\
+  01\
   F3
   ```
 
-  | Line | Translation | Stack (Top ... Bottom)    | Memory              |
-  | ---- | ----------- | ------------------------- | ------------------- |
-  | 1    | PUSH32      |                           |                     |
-  | 2    | (uint256) 4 | (uint256) 4;              |                     |
-  | 3    | PUSH32      | (uint256) 4;              |                     |
-  | 4    | (uint256) 5 | (uint256) 4; (uint256) 5; |                     |
-  | 5    | ADD         | (uint256) 9;              |                     |
-  | 6    | PUSH1       |                           |                     |
-  | 7    | (uint8) 0   | (uint8) 0; (uint256) 9;   |                     |
-  | 8    | MSTORE      |                           | [0:32]=(uint256) 9; |
-  | 9    | PUSH1       |                           |                     |
-  | 10   | (uint8) 32  | (uint8) 32;               |                     |
-  | 11   | PUSH1       |                           |                     |
-  | 12   | (uint8) 0   | (uint8) 0; (uint8) 32;    |                     |
-  | 13   | RETURN      |                           |                     |
+| Line | Translation | Stack (Top ... Bottom)    | Memory              |
+| ---- | ----------- | ------------------------- | ------------------- |
+| 1    | PUSH32      |                           |                     |
+| 2    | (uint256) 4 | (uint256) 4;              |                     |
+| 3    | PUSH32      | (uint256) 4;              |                     |
+| 4    | (uint256) 5 | (uint256) 4; (uint256) 5; |                     |
+| 5    | ADD         | (uint256) 9;              |                     |
+| 6    | PUSH1       |                           |                     |
+| 7    | (uint8) 0   | (uint8) 0; (uint256) 9;   |                     |
+| 8    | MSTORE      |                           | [0:32]=(uint256) 9; |
+| 9    | PUSH1       |                           |                     |
+| 10   | (uint8) 32  | (uint8) 32;               |                     |
+| 11   | PUSH1       |                           |                     |
+| 12   | (uint8) 0   | (uint8) 0; (uint8) 32;    |                     |
+| 13   | RETURN      |                           |                     |
 
   ```
   RETURN offset=0 length=3
@@ -93,7 +94,7 @@ Reason:
 
   output: `0x0000000000000000000000000000000000000000000000000000000000000009`
 
-2. `return 1 < 2 ? 3 : 4;`
+2. `1 < 2 ? 3 : 4;`
 
   > true statement is after the false statement.
 
@@ -175,4 +176,138 @@ Reason:
 
 4. `let x = 3; x = x+x;`
 
-5. constant array
+5. ```javascript
+	function f() {
+	    return 3;
+	}
+	f();
+	```
+
+	```typescript
+	offsetLookup = {
+	    "f": 
+	}
+	```
+
+	```
+	6000\
+	7F\
+	\
+	56\
+	5B\
+	7F\
+	0000000000000000000000000000000000000000000000000000000000000003\
+	58\
+	00\
+	51\
+	56\
+	5B\
+	7F\
+	0000000000000000000000000000000000000000000000000000000000000005\
+	58\
+	01\
+	6000\
+	52\
+	7F\
+	line 5\
+	56\
+	5B\
+	60005260206000F3
+	```
+
+	| Line | Translation | Stack (Top ... Bottom) | Memory | PC   | delta |
+	| ---- | ----------- | ---------------------- | ------ | ---- | ----- |
+	| 2    |             |                        |        |      |       |
+	|      |             |                        |        |      |       |
+	|      |             |                        |        |      |       |
+
+	
+
+6. ```
+	load 0
+	jump to jumpdest 0
+	jumpdest
+	push 3
+	mload pc
+	jump
+	JUMPDEST 0
+	store pc
+	jump line 3
+	jumpdest
+	return  sequence
+	```
+
+4. 
+
+8. ```javascript
+	function f() {
+	    let w = g() + 1;
+	    let x = 1;
+	    function g(w) { // typescript points to the offsets in evm memory
+	        let x = 5 + w;
+	        let z2 = 6;
+	        return x;
+	    }
+	    return x;
+	}
+	f();
+	let y = 2;
+	```
+
+	lambda lifting
+
+	```typescript
+	Environment = {
+	    locals: {
+	        z : 0,
+	        z2: 32
+	    }
+	    upper_scope : {
+	        locals: {
+	            w : 0, 
+	            x : 32
+	        }
+	        upper_scope : {
+	            locals : {
+	                f : 0,
+	                y : 32
+	            }
+	        }
+	    }
+	}
+	```
+
+	```
+	6000\
+	
+	```
+
+	| Line | Translation | Stack | Memory | PC   | delta |
+	| ---- | ----------- | ----- | ------ | ---- | ----- |
+	| 2    |             |       |        |      |       |
+	|      |             |       |        |      |       |
+	|      |             |       |        |      |       |
+
+	
+
+9. ```javascript
+	function f() {
+	    return x;
+	}
+	let y = 5;
+	f();
+	```
+
+	TypeScript will print the error. Unable to find `x`.
+
+10. ```javascript
+	function f() {
+	    return x;
+	}
+	let x = 5;
+	f();
+	```
+
+11. 
+
+5. 

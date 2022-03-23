@@ -5,7 +5,6 @@ const createContext_js_1 = require("js-slang/dist/createContext.js");
 const list_1 = require("js-slang/dist/stdlib/list");
 const parser_1 = require("js-slang/dist/stdlib/parser");
 const Opcode_1 = require("./Opcode");
-const Primitives_1 = require("./Primitives");
 const misc_1 = require("./misc");
 const Environment_1 = require("./Environment");
 // console.log(parse('x => x * x;', createContext(4)));
@@ -161,7 +160,9 @@ function final_return() {
 }
 function compile_program(program) {
     let closure_lookup = new Environment_1.default();
-    return compile_expression(program, closure_lookup) + final_return();
+    const body = compile_expression(program, closure_lookup) + final_return();
+    const length_of_constants = constants.length / 2 + 5;
+    return (0, Opcode_1.PUSH)(0) + (0, Opcode_1.PUSH)(length_of_constants) + Opcode_1.opCodes.JUMP + constants + Opcode_1.opCodes.JUMPDEST + body;
 }
 function make_jump_immediate(offset) {
     return Opcode_1.opCodes.PC + (0, Opcode_1.PUSH32)(offset) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP;
@@ -200,6 +201,11 @@ function constant_declaration_value(stmt) {
 function compile_sequence(expr, closure_lookup) {
     // compile for each statement, starting from 1st
     const statements = sequence_statements(expr);
+    const declarations = list_to_arr(scan_out_declarations(expr));
+    for (let i = 0; i < declarations.length; i++) {
+        closure_lookup.insert(declarations[i], (i + 1) * 32);
+    }
+    closure_lookup.frame_offset = GLOBAL_OFFSET;
     const code = map(x => compile_expression(x, closure_lookup), statements);
     return accumulate((x, y) => x + y, "", code);
 }
@@ -335,23 +341,26 @@ function compile_expression(expr, closure_lookup) {
     else if (is_variable_declaration(expr)) {
         const symbol = declaration_symbol(expr);
         const value = declaration_value(expr);
-        const node = is_number(value)
-            ? new Primitives_1.Integer(value)
-            : is_boolean(value)
-                ? new Primitives_1.Boolean(value)
-                : undefined;
-        if (node === undefined) {
-            console.log(value);
-            console.log(expr);
-            console.log(node);
-            return "00";
-        }
-        console.log(symbol);
-        const res = node.pushToMem(GLOBAL_OFFSET);
-        GLOBAL_OFFSET = res[0];
-        closure_lookup.insert(symbol, res[1]);
-        // store res[1] to lookup/env
-        return res[2];
+        const frame_offset = closure_lookup.frame_offset;
+        const offset = closure_lookup.search(symbol) + frame_offset;
+        return is_number_literal(value)
+            ? (0, Opcode_1.PUSH32)(literal_value(value))
+            : is_boolean_literal(value)
+                ? (0, Opcode_1.LDCB)(literal_value(value))
+                : undefined
+                    + (0, Opcode_1.PUSH32)(offset) + Opcode_1.opCodes.MSTORE;
+        // if (node === undefined) {
+        //   console.log(value);
+        //   console.log(expr);
+        //   console.log(node);
+        //   return "00";
+        // }
+        // console.log(symbol);
+        // const res = node.pushToMem(GLOBAL_OFFSET);
+        // GLOBAL_OFFSET = res[0];
+        // closure_lookup.insert(symbol, res[1]);
+        // // store res[1] to lookup/env
+        // return res[2];
     }
     else if (is_name(expr)) {
         const name = symbol_of_name(expr);
