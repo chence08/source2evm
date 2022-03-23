@@ -112,6 +112,10 @@ function is_sequence(stmt) {
  return is_tagged_list(stmt, "sequence");
 }
 
+function make_sequence(stmt) {
+  return list("sequence", list(stmt));
+}
+
 function sequence_statements(stmt) {   
  return head(tail(stmt));
 }
@@ -427,13 +431,10 @@ function compile_expression(expr, closure_lookup): string {
     const value = declaration_value(expr);
     
     const frame_offset = closure_lookup.frame_offset;
+    console.log(closure_lookup);
     const offset = closure_lookup.search(symbol) + frame_offset;
-
-    return is_number_literal(value)
-            ? PUSH32(literal_value(value))
-            : is_boolean_literal(value)
-            ? LDCB(literal_value(value))
-            : undefined
+    console.log(value);
+    return PUSH32(value)
             + PUSH32(offset) + opCodes.MSTORE;
       // if (node === undefined) {
       //   console.log(value);
@@ -451,7 +452,8 @@ function compile_expression(expr, closure_lookup): string {
       
   } else if (is_name(expr)) {
     const name = symbol_of_name(expr);
-    const offset = LOOKUP_TABLE[name];
+    const offset = closure_lookup.search(name) + closure_lookup.frame_offset;
+    
     return getSingleHeapValue(offset);
   } else if (is_sequence(expr)) {
     return compile_sequence(expr, closure_lookup);
@@ -543,9 +545,9 @@ function translate(lst) {
 }
 
 function parse_and_compile(string) {
-  return compile_program(parseNew(string));
+  return compile_program(make_sequence(parseNew(string)));
 }
 
 
-console.log(parse_and_compile('const x = 1;'));
-console.log(constants);
+console.log(parse_and_compile('let x = 1; x;'));
+// console.log(constants);

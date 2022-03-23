@@ -12,14 +12,14 @@ export function getSizeByteCode(offset: number): string {
   return opCodes.PUSH32 + zeroPad(offset + 32, 64) + opCodes.MLOAD;
 }
 
-export function getFirstChildByteCode(offset: number): string {
-  return opCodes.PUSH32 + zeroPad(offset + 32 * 2, 64) + opCodes.MLOAD;
-}
+// export function getFirstChildByteCode(offset: number): string {
+//   return opCodes.PUSH32 + zeroPad(offset + 32 * 2, 64) + opCodes.MLOAD;
+// }
 
-export function getLastChildByteCode(offset: number): string {
-  return opCodes.PUSH32 + zeroPad(offset + 32 * 3, 64) + opCodes.MLOAD;
-}
+// export function getLastChildByteCode(offset: number): string {
+//   return opCodes.PUSH32 + zeroPad(offset + 32 * 3, 64) + opCodes.MLOAD;
+// }
 
 export function getSingleHeapValue(offset: number): string {
-  return opCodes.PUSH32 + zeroPad(offset + 32 * 4, 64) + opCodes.MLOAD;
+  return opCodes.PUSH32 + zeroPad(offset, 64) + opCodes.MLOAD;
 }
