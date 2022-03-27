@@ -2,7 +2,7 @@ class CompileTimeEnv {
   constructor(){}
 }
 
-export default class NameLookupTable {
+export default class Environment {
   locals: Record<string, number>;
   constructor(localNames: [string]) {
     this.locals = {};
