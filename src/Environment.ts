@@ -5,6 +5,7 @@ export default class Environment {
   locals: Record<string, number>;
   pc_offset: number;
   frame_offset: number;
+  total_var_count: number = 0;
   public constants: string[] = [];
   
   constructor(upper_scope?: Environment, pc_offset?: number) {
@@ -34,8 +35,9 @@ export default class Environment {
     }
   }
 
-  insert(key: string, val: number) {
-    this.locals[key] = val;
+  insert(key: string) {
+    this.locals[key] = this.total_var_count * 32;
+    this.total_var_count += 1;
   }
 
   update_mem(name: string, value: number, offset_code: string): string {

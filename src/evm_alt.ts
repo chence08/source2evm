@@ -426,7 +426,7 @@ function get_current_env_offset() {
   return PUSH(32) + opCodes.MLOAD;
 }
 
-function load_lambda_param(x, local_offset) {
+function load_lambda_param(local_offset) {
   // already on stack
   return PUSH32(local_offset) + get_current_env_offset() + opCodes.ADD + opCodes.MSTORE;
 }
@@ -450,8 +450,8 @@ function compile_lambda_expression(expr, closure_lookup) {
   // all params are on stack, in reverse order, i.e. last argument on top
   if (parameters !== null) {
     for (const x of parameters) {
-      load_params = load_params + load_lambda_param(x, current_offset)
-      extended_env.insert(x, current_offset);
+      load_params = load_params + load_lambda_param(current_offset)
+      extended_env.insert(x);
       current_offset += 32;
     }
   }
@@ -459,7 +459,7 @@ function compile_lambda_expression(expr, closure_lookup) {
   if (locals !== null) {
     for (const x of locals) {
       // assign space for locals
-      extended_env.insert(x, current_offset);
+      extended_env.insert(x);
       current_offset += 32;
     }
   }
@@ -630,11 +630,6 @@ function get_opcode(expr) {
   // }
   return opCodes[code]
        + (is_pair(data) && is_number(head(data)) ? to_hex_and_pad(head(data), code) : "");
-}
-
-function translate(lst) {
-  const temp = map(get_opcode, lst);
-  return accumulate((x, y) => (x + y), "", temp);
 }
 
 function parse_and_compile(string) {
