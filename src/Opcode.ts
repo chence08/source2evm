@@ -6,6 +6,7 @@ import { zeroPad } from "./misc";
 export const opCodes = {
   "PUSH32": "7F",
   "PUSH" : "60",
+  "PUSH4" : "63", 
   "ADD" : "01",
   "MUL" : "02",
   "SUB" : "03",
@@ -32,10 +33,14 @@ export function PUSH32(i: number): string {
   return opCodes.PUSH32 + zeroPad(i, 64);
 }
 
+export function PUSH4(i: number): string {
+  return opCodes.PUSH4 + zeroPad(i, 8);
+}
+
 export function PUSH(i: number): string {
   return opCodes.PUSH + zeroPad(i, 2);
 }
 
 export function LDCB(b: boolean): string {
-  return b ? PUSH32(1) : PUSH32(0);
+  return b ? PUSH(1) : PUSH(0);
 }

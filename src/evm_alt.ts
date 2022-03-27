@@ -3,7 +3,7 @@ import createContext from "js-slang/dist/createContext.js";
 import { pair, is_pair, head, tail, is_null, list, set_head, set_tail } from "js-slang/dist/stdlib/list";
 import { parse } from "js-slang/dist/stdlib/parser";
 
-import { PUSH32, PUSH, LDCB, opCodes } from "./Opcode";
+import { PUSH32, PUSH, PUSH4, LDCB, opCodes } from "./Opcode";
 
 import Node from "./Node";
 import { Integer, Boolean, Character } from "./Primitives";
@@ -20,7 +20,7 @@ import Environment from "./Environment";
 // start of env, starting at 0x220
 let GLOBAL_OFFSET = 0x220;
 let LOOKUP_TABLE = {};
-let CONST_OFFSET = 10;
+let CONST_OFFSET = 13;
 let constants = "";
 
 function parseNew(x) {
@@ -212,9 +212,8 @@ function final_return() {
 function compile_program(program) {
   let closure_lookup = new Environment();
   const body = compile_expression(program, closure_lookup) + final_return();
-  const length_of_constants = constants.length / 2 + 10;
-
-  return PUSH(0) + PUSH(length_of_constants) + opCodes.JUMP + constants + opCodes.JUMPDEST + body;
+  const length_of_constants = constants.length / 2 + 13;
+  return PUSH(0) + PUSH4(length_of_constants) + opCodes.JUMP + constants + opCodes.JUMPDEST + body;
   
 }
 
@@ -644,6 +643,6 @@ function parse_and_compile(string) {
 
 
 // console.log(parse_and_compile('let y = 1; const x = 3 + y; x + y;'));
-console.log(parse_and_compile(`function f(x) {return x + 1;} f(2);`));
+console.log(parse_and_compile(`function f(x, y) {let z = 1; return x + y + z;} f(10, 12);`));
 
 // console.log(constants);
