@@ -264,6 +264,19 @@ function constant_declaration_value(stmt) {
  return head(tail(tail(stmt)));
 }
 
+// applications are tagged with "application"
+// and have "operator" and "operands"
+
+function is_application(component) {
+ return is_tagged_list(component, "application");
+}
+function function_expression(component) {
+ return head(tail(component));
+}
+function arg_expressions(component) {
+ return head(tail(tail(component)));
+}
+
 
 function compile_sequence(expr, closure_lookup) {
   // compile for each statement, starting from 1st
@@ -386,7 +399,7 @@ function compile_constant(expr, closure_lookup) {
 
   const this_offset = CONST_OFFSET;
   
-  closure_lookup.insert(name, this_offset);
+  // closure_lookup.insert(name, this_offset);
   
   // mload rtn
   // jump
@@ -409,7 +422,7 @@ function get_current_env_offset() {
 
 function load_lambda_param(x, local_offset) {
   // already on stack
-  return PUSH32(local_offset) + get_current_env_offset() + opCodes.ADD;
+  return PUSH32(local_offset) + get_current_env_offset() + opCodes.ADD + opCodes.MSTORE;
 }
 
 // function load_lambda_local(x, local_offset)
@@ -427,44 +440,52 @@ function compile_lambda_expression(expr, closure_lookup) {
   
   // list of params
   const parameters = list_to_arr(lambda_parameter_symbols(expr)).reverse();
-  let map_params = "";
+  let load_params = "";
   // all params are on stack, in reverse order, i.e. last argument on top
-  for (const x of parameters) {
-    if (x == null) {
-      break;
+  if (parameters !== null) {
+    for (const x of parameters) {
+      load_params = load_params + load_lambda_param(x, current_offset)
+      extended_env.insert(x, current_offset);
+      current_offset += 32;
     }
-    map_params = map_params + load_lambda_param(x, current_offset)
-    extended_env.insert(x, current_offset);
-    current_offset += 32;
   }
 
-  for (const x of locals) {
-    // assign space for locals
-    extended_env.insert(x, current_offset);
-    current_offset += 32;
+  if (locals !== null) {
+    for (const x of locals) {
+      // assign space for locals
+      extended_env.insert(x, current_offset);
+      current_offset += 32;
+    }
   }
   console.log(body);
-  return compile_expression(body, extended_env);
-  // const extended_index_table =
-  //     accumulate((s, it) => extend_index_table(it, s),
-  //                index_table,
-  //                append(reverse(locals), 
-  //                       reverse(parameters)));
-  // add_ternary_instruction(LDF, NaN, NaN, 
-  //                        length(parameters) + length(locals));
-  // const max_stack_size_address = insert_pointer - 3;
-  // const address_address = insert_pointer - 2;
+  const code = load_params + compile_expression(body, extended_env);
+
+  console.log(code);
+
+  return code;
+}
+ 
+function compile_application(expr, closure_lookup) {
+  const name = symbol_of_name(function_expression(expr));
+  const function_offset_code = get_name_offset(closure_lookup, name);
+  const args = map(x => compile_expression(x, closure_lookup), arg_expressions(expr));
+  const arg_code = accumulate((a, b) => a + b, "", args);
   
-  // push_to_compile(make_to_compile_task(
-  //                     body, max_stack_size_address, 
-  //                     address_address, extended_index_table));
-  // return ;
+  const change_env = closure_lookup.update_stack(name);
+
+  const load_args_and_jump = arg_code + function_offset_code + opCodes.MLOAD + change_env + opCodes.JUMP + opCodes.JUMPDEST;
+
+  const call_function = opCodes.PC + PUSH((load_args_and_jump.length / 2) + 3) + opCodes.ADD + load_args_and_jump;
+  
+  return call_function;
 }
 
 function get_name_offset(closure_lookup, name) {
   const frame_offset = get_current_env_offset();
   console.log(frame_offset);
-  return frame_offset + PUSH32(closure_lookup.search(name) * 32) + opCodes.ADD;
+  console.log(name);
+  console.log(closure_lookup.search(name));
+  return frame_offset + PUSH32(closure_lookup.search(name)) + opCodes.ADD;
 }
 
 function compile_expression(expr, closure_lookup): string {
@@ -523,6 +544,8 @@ function compile_expression(expr, closure_lookup): string {
   } else if (is_constant_declaration(expr)) {
     // closure_lookup.update_mem(compile_constant(expr, closure_lookup));
     return compile_constant(expr, closure_lookup);
+  } else if (is_application(expr)) {
+    return compile_application(expr, closure_lookup);
   } else {
       const op = operator(expr);
       console.log(expr);
@@ -611,5 +634,7 @@ function parse_and_compile(string) {
 }
 
 
-console.log(parse_and_compile('const x = 3; x + x;'));
+// console.log(parse_and_compile('let y = 1; const x = 3 + y; x + y;'));
+console.log(parse_and_compile(`function f(x) {x + 1;} f(2);`));
+
 // console.log(constants);

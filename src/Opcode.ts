@@ -25,6 +25,7 @@ export const opCodes = {
   "AND" : "16", 
   "OR" : "17", 
   "SWAP1" : "90", 
+  "DUP1" : "80", 
 }
 
 export function PUSH32(i: number): string {
