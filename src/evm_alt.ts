@@ -277,7 +277,14 @@ function arg_expressions(component) {
  return head(tail(tail(component)));
 }
 
-
+// Return statements
+function is_return_statement(stmt) {
+  return is_tagged_list(stmt, "return_statement");
+ }
+ function return_statement_expression(stmt) {
+  return head(tail(stmt));
+ }
+ 
 function compile_sequence(expr, closure_lookup) {
   // compile for each statement, starting from 1st
   const statements = sequence_statements(expr);
@@ -546,6 +553,8 @@ function compile_expression(expr, closure_lookup): string {
     return compile_constant(expr, closure_lookup);
   } else if (is_application(expr)) {
     return compile_application(expr, closure_lookup);
+  } else if (is_return_statement(expr)) {
+    return compile_expression(return_statement_expression(expr), closure_lookup);
   } else {
       const op = operator(expr);
       console.log(expr);
@@ -635,6 +644,6 @@ function parse_and_compile(string) {
 
 
 // console.log(parse_and_compile('let y = 1; const x = 3 + y; x + y;'));
-console.log(parse_and_compile(`function f(x) {x + 1;} f(2);`));
+console.log(parse_and_compile(`function f(x) {return x + 1;} f(2);`));
 
 // console.log(constants);
