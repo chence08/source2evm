@@ -20,7 +20,8 @@ import Environment from "./Environment";
 // start of env, starting at 0x220
 let GLOBAL_OFFSET = 0x220;
 let LOOKUP_TABLE = {};
-let CONST_OFFSET = 13;
+const INIT_CODE_LENGTH = 13;
+let CONST_OFFSET = INIT_CODE_LENGTH;
 let constants = "";
 
 function parseNew(x) {
@@ -404,14 +405,14 @@ function compile_constant(expr, closure_lookup) {
   closure_lookup.constants.push(name);
 
   const this_offset = CONST_OFFSET;
-  
+  console.log("OFFSET: " + this_offset);
   // closure_lookup.insert(name, this_offset);
   
   // mload rtn
   // jump
-  constants = opCodes.JUMPDEST + constants + body + opCodes.SWAP1 + opCodes.JUMP;
+  constants = constants + opCodes.JUMPDEST + body + opCodes.SWAP1 + opCodes.JUMP;
   
-  CONST_OFFSET = constants.length / 2;
+  CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
   
   return closure_lookup.update_mem(name, this_offset, get_name_offset(closure_lookup, name));
 }
@@ -468,7 +469,11 @@ function compile_lambda_expression(expr, closure_lookup) {
 
   console.log(code);
 
-  return code;
+  // return result or last computation stored on stack
+  // need to pop stack frame and move stack pointer back by 32
+
+  const return_stack_pointer = PUSH(32) + get_stack_offset() + opCodes.SUB + opCodes.DUP1 + PUSH(0) + opCodes.MSTORE + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE
+  return code + return_stack_pointer;
 }
  
 function compile_application(expr, closure_lookup) {
@@ -638,6 +643,6 @@ function parse_and_compile(string) {
 
 
 // console.log(parse_and_compile('let y = 1; const x = 3 + y; x + y;'));
-console.log(parse_and_compile(`function f(x, y) {let z = 1; return x + y + z;} f(10, 12);`));
+console.log(parse_and_compile(`const z = 5; function f(x, y) {let z = 1; return x + y + z;} let x = 2; f(10, 12) + x + z;`));
 
 // console.log(constants);

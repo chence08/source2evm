@@ -10,7 +10,8 @@ const Environment_1 = require("./Environment");
 // start of env, starting at 0x220
 let GLOBAL_OFFSET = 0x220;
 let LOOKUP_TABLE = {};
-let CONST_OFFSET = 10;
+const INIT_CODE_LENGTH = 13;
+let CONST_OFFSET = INIT_CODE_LENGTH;
 let constants = "";
 function parseNew(x) {
     const res = (0, parser_1.parse)(x, (0, createContext_js_1.default)());
@@ -161,8 +162,8 @@ function final_return() {
 function compile_program(program) {
     let closure_lookup = new Environment_1.default();
     const body = compile_expression(program, closure_lookup) + final_return();
-    const length_of_constants = constants.length / 2 + 10;
-    return (0, Opcode_1.PUSH)(0) + (0, Opcode_1.PUSH)(length_of_constants) + Opcode_1.opCodes.JUMP + constants + Opcode_1.opCodes.JUMPDEST + body;
+    const length_of_constants = constants.length / 2 + 13;
+    return (0, Opcode_1.PUSH)(0) + (0, Opcode_1.PUSH4)(length_of_constants) + Opcode_1.opCodes.JUMP + constants + Opcode_1.opCodes.JUMPDEST + body;
 }
 function make_jump_immediate(offset) {
     return Opcode_1.opCodes.PC + (0, Opcode_1.PUSH32)(offset) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP;
@@ -320,11 +321,12 @@ function compile_constant(expr, closure_lookup) {
     // add constant name to closure constants list
     closure_lookup.constants.push(name);
     const this_offset = CONST_OFFSET;
+    console.log("OFFSET: " + this_offset);
     // closure_lookup.insert(name, this_offset);
     // mload rtn
     // jump
-    constants = Opcode_1.opCodes.JUMPDEST + constants + body + Opcode_1.opCodes.SWAP1 + Opcode_1.opCodes.JUMP;
-    CONST_OFFSET = constants.length / 2;
+    constants = constants + Opcode_1.opCodes.JUMPDEST + body + Opcode_1.opCodes.SWAP1 + Opcode_1.opCodes.JUMP;
+    CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
     return closure_lookup.update_mem(name, this_offset, get_name_offset(closure_lookup, name));
 }
 function get_stack_offset() {
@@ -335,7 +337,7 @@ function get_current_env_offset() {
     // store stack offset in 0x20
     return (0, Opcode_1.PUSH)(32) + Opcode_1.opCodes.MLOAD;
 }
-function load_lambda_param(x, local_offset) {
+function load_lambda_param(local_offset) {
     // already on stack
     return (0, Opcode_1.PUSH32)(local_offset) + get_current_env_offset() + Opcode_1.opCodes.ADD + Opcode_1.opCodes.MSTORE;
 }
@@ -354,22 +356,25 @@ function compile_lambda_expression(expr, closure_lookup) {
     // all params are on stack, in reverse order, i.e. last argument on top
     if (parameters !== null) {
         for (const x of parameters) {
-            load_params = load_params + load_lambda_param(x, current_offset);
-            extended_env.insert(x, current_offset);
+            load_params = load_params + load_lambda_param(current_offset);
+            extended_env.insert(x);
             current_offset += 32;
         }
     }
     if (locals !== null) {
         for (const x of locals) {
             // assign space for locals
-            extended_env.insert(x, current_offset);
+            extended_env.insert(x);
             current_offset += 32;
         }
     }
     console.log(body);
     const code = load_params + compile_expression(body, extended_env);
     console.log(code);
-    return code;
+    // return result or last computation stored on stack
+    // need to pop stack frame and move stack pointer back by 32
+    const return_stack_pointer = (0, Opcode_1.PUSH)(32) + get_stack_offset() + Opcode_1.opCodes.SUB + Opcode_1.opCodes.DUP1 + (0, Opcode_1.PUSH)(0) + Opcode_1.opCodes.MSTORE + Opcode_1.opCodes.MLOAD + (0, Opcode_1.PUSH)(32) + Opcode_1.opCodes.MSTORE;
+    return code + return_stack_pointer;
 }
 function compile_application(expr, closure_lookup) {
     const name = symbol_of_name(function_expression(expr));
@@ -531,13 +536,9 @@ function get_opcode(expr) {
     return Opcode_1.opCodes[code]
         + ((0, list_1.is_pair)(data) && is_number((0, list_1.head)(data)) ? to_hex_and_pad((0, list_1.head)(data), code) : "");
 }
-function translate(lst) {
-    const temp = map(get_opcode, lst);
-    return accumulate((x, y) => (x + y), "", temp);
-}
 function parse_and_compile(string) {
     return (0, Opcode_1.PUSH)(32) + (0, Opcode_1.PUSH)(0) + Opcode_1.opCodes.MSTORE + compile_program(make_sequence(parseNew(string)));
 }
 // console.log(parse_and_compile('let y = 1; const x = 3 + y; x + y;'));
-console.log(parse_and_compile(`function f(x) {return x + 1;} f(2);`));
+console.log(parse_and_compile(`const z = 5; function f(x, y) {let z = 1; return x + y + z;} let x = 2; f(10, 12) + x + z;`));
 // console.log(constants);
