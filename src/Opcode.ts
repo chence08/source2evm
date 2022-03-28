@@ -25,6 +25,7 @@ export const opCodes = {
   "NOT" : "19", 
   "AND" : "16", 
   "OR" : "17", 
+  "XOR" : "18", 
   "SWAP1" : "90", 
   "DUP1" : "80", 
   "POP" : "50", 

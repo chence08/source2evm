@@ -294,12 +294,30 @@ function compile_while_loop(expr, closure_lookup) {
     const cond = compile_expression(loop_condition(expr), closure_lookup);
     console.log(body);
     console.log(cond);
-    const dummy = (0, Opcode_1.PUSH4)(0) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMPI + body
+    const dummy = (0, Opcode_1.PUSH4)(0)
+        + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMPI
+        + Opcode_1.opCodes.POP + Opcode_1.opCodes.PC + (0, Opcode_1.PUSH4)(0) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP
+        + Opcode_1.opCodes.JUMPDEST;
+    const middle_len = dummy.length / 2;
+    console.log(middle_len);
+    const dummy2 = (0, Opcode_1.PUSH4)(0) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP
+        + Opcode_1.opCodes.JUMPDEST
+        + body
         + Opcode_1.opCodes.DUP1 + (0, Opcode_1.PUSH)(1) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP + Opcode_1.opCodes.JUMPDEST;
-    const middle_len = dummy.length;
-    return Opcode_1.opCodes.PC + Opcode_1.opCodes.JUMPDEST + cond + Opcode_1.opCodes.NOT + Opcode_1.opCodes.PC + (0, Opcode_1.PUSH4)(middle_len)
-        + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMPI + body
+    const back_len = dummy2.length / 2;
+    console.log(back_len);
+    return Opcode_1.opCodes.PC + Opcode_1.opCodes.JUMPDEST + cond
+        + Opcode_1.opCodes.PC + (0, Opcode_1.PUSH4)(middle_len)
+        + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMPI
+        // if true, jump to loop body 
+        // end loop otherwise
+        + Opcode_1.opCodes.POP + Opcode_1.opCodes.PC + (0, Opcode_1.PUSH4)(back_len) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP
+        + Opcode_1.opCodes.JUMPDEST
+        + body
         + Opcode_1.opCodes.DUP1 + (0, Opcode_1.PUSH)(1) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP + Opcode_1.opCodes.JUMPDEST;
+    // return opCodes.PC + opCodes.JUMPDEST + cond + opCodes.NOT + opCodes.PC + PUSH4(middle_len) 
+    //   + opCodes.ADD + opCodes.JUMPI + body 
+    //   + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST;
     // return opCodes.PC + opCodes.JUMPDEST + make_jump_condition((body.length / 2) + 1, cond) 
     // + body + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST + opCodes.POP;
     // pc
@@ -380,7 +398,6 @@ function load_lambda_param(local_offset) {
 }
 // function load_lambda_local(x, local_offset)
 function compile_lambda_expression(expr, closure_lookup) {
-    console.log("HIHIIHIHI");
     console.log(closure_lookup);
     const the_body = lambda_body(expr);
     const body = is_block(the_body) ? block_body(the_body) : the_body;
@@ -593,20 +610,20 @@ function parse_and_compile(string) {
 //   }
 // }
 // f();`))
-console.log(parse_and_compile(`
-function f() {
-  x = 3;
-  return x + 1;
-}
-let x = 2;
-f() + x;
-` // return 7
-));
 // console.log(parse_and_compile(`
-// let x = 0;
-// while (x < 3) {
-//   x = x + 1;
+// function f() {
+//   x = 3;
+//   return x + 1;
 // }
-// x;
-// `))
+// let x = 2;
+// f() + x;
+// ` // return 7
+// ));
+console.log(parse_and_compile(`
+let x = 0;
+while (x < 3) {
+  x = x + 1;
+}
+x;
+`));
 // console.log(constants);

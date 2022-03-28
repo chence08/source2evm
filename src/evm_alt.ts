@@ -379,14 +379,36 @@ function compile_while_loop(expr, closure_lookup) {
   console.log(body)
   console.log(cond)
 
-  const dummy = PUSH4(0) + opCodes.ADD + opCodes.JUMPI + body 
-    + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST
+  const dummy = PUSH4(0) 
+  + opCodes.ADD + opCodes.JUMPI
+  + opCodes.POP + opCodes.PC + PUSH4(0) + opCodes.ADD + opCodes.JUMP
+  + opCodes.JUMPDEST;
 
-  const middle_len = dummy.length;
+  const middle_len = dummy.length / 2;
 
-  return opCodes.PC + opCodes.JUMPDEST + cond + opCodes.NOT + opCodes.PC + PUSH4(middle_len) 
-    + opCodes.ADD + opCodes.JUMPI + body 
+  console.log(middle_len);
+
+  const dummy2 = PUSH4(0) + opCodes.ADD + opCodes.JUMP
+  + opCodes.JUMPDEST 
+  + body 
+  + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST;
+
+  const back_len = dummy2.length / 2;
+  console.log(back_len);
+
+  return opCodes.PC + opCodes.JUMPDEST + cond 
+    + opCodes.PC + PUSH4(middle_len) 
+    + opCodes.ADD + opCodes.JUMPI
+    // if true, jump to loop body 
+    // end loop otherwise
+    + opCodes.POP + opCodes.PC + PUSH4(back_len) + opCodes.ADD + opCodes.JUMP
+    + opCodes.JUMPDEST 
+    + body 
     + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST;
+
+  // return opCodes.PC + opCodes.JUMPDEST + cond + opCodes.NOT + opCodes.PC + PUSH4(middle_len) 
+  //   + opCodes.ADD + opCodes.JUMPI + body 
+  //   + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST;
 
   // return opCodes.PC + opCodes.JUMPDEST + make_jump_condition((body.length / 2) + 1, cond) 
     // + body + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST + opCodes.POP;
@@ -481,7 +503,6 @@ function load_lambda_param(local_offset) {
 // function load_lambda_local(x, local_offset)
 
 function compile_lambda_expression(expr, closure_lookup) {
-  console.log("HIHIIHIHI");
   console.log(closure_lookup);
   const the_body = lambda_body(expr);
   const body = is_block(the_body) ? block_body(the_body) : the_body;
@@ -704,21 +725,21 @@ function parse_and_compile(string) {
 //   }
 // }
 // f();`))
-console.log(parse_and_compile(`
-function f() {
-  x = 3;
-  return x + 1;
-}
-let x = 2;
-f() + x;
-` // return 7
-));
-
 // console.log(parse_and_compile(`
-// let x = 0;
-// while (x < 3) {
-//   x = x + 1;
+// function f() {
+//   x = 3;
+//   return x + 1;
 // }
-// x;
-// `))
+// let x = 2;
+// f() + x;
+// ` // return 7
+// ));
+
+console.log(parse_and_compile(`
+let x = 0;
+while (x < 3) {
+  x = x + 1;
+}
+x;
+`))
 // console.log(constants);
