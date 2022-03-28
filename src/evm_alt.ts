@@ -289,10 +289,15 @@ function arg_expressions(component) {
 // Return statements
 function is_return_statement(stmt) {
   return is_tagged_list(stmt, "return_statement");
- }
- function return_statement_expression(stmt) {
+}
+function return_statement_expression(stmt) {
   return head(tail(stmt));
- }
+}
+
+// Mutable assignments
+function is_assignment(stmt) {
+  return is_tagged_list(stmt, "assignment");
+}
  
 function compile_sequence(expr, closure_lookup) {
   // compile for each statement, starting from 1st
@@ -309,22 +314,6 @@ function compile_sequence(expr, closure_lookup) {
   
   const code = map(x => compile_expression(x, closure_lookup), statements);
   return PUSH32(closure_lookup.frame_offset) + PUSH(0x20) + opCodes.MSTORE + accumulate((x, y) => x + y, "", code);
-}
-
-function count_opcode_length(code) {
-  if (head(code) === "PUSH32") {
-      return 33;
-  } else if (head(code) === "PUSH") {
-      return 2;
-  } else {
-      return 1;
-  }
-}
-
-
-function count_length(code) {
-  return accumulate((a, b) =>
-      a + b, 0, map(count_opcode_length, code));
 }
 
 function compile_conditional(expr, closure_lookup) {
@@ -518,10 +507,9 @@ function compile_expression(expr, closure_lookup): string {
     return LDCB(literal_value(expr));
   } else if (is_lambda_expression(expr)) {
     return compile_lambda_expression(expr, closure_lookup);
-  } else if (is_variable_declaration(expr)) {
+  } else if (is_variable_declaration(expr) || is_assignment(expr)) {
     const symbol = declaration_symbol(expr);
     const value = declaration_value(expr);
-    console.log("IN VAR DECLARATION COMPILE");
     // frame_offset is the offset of the current env frame
     console.log(closure_lookup);
     console.log(value);
@@ -661,14 +649,23 @@ function parse_and_compile(string) {
 
 // console.log(parse_and_compile(`1 < 3 ? 2 : 4;`));
 // console.log(parse_and_compile(`const z = 5; function f(x, y) {const z = 1; return z > x ? z : x + y + z;} let x = 2; f(10, 12) + x + z;`));
+// console.log(parse_and_compile(`
+// function f(){
+//   if (1 > 2) {
+//     return 1;
+//   } else {
+//     return 2;
+//   }
+// }
+// f();`))
 console.log(parse_and_compile(`
-function f(){
-  if (1 > 2) {
-    return 1;
-  } else {
-    return 2;
-  }
+function f() {
+  x = 3;
+  return x + 1;
 }
-f();`))
+let x = 2;
+f() + x;
+` // return 7
+));
 
 // console.log(constants);
