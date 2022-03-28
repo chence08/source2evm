@@ -219,11 +219,11 @@ function compile_program(program) {
 }
 
 function make_jump_immediate(offset) {
-  return opCodes.PC + PUSH32(offset) + opCodes.ADD + opCodes.JUMP;
+  return opCodes.PC + PUSH4(offset + 7) + opCodes.ADD + opCodes.JUMP;
 }
 
 function make_jump_condition(offset, condition) {
-  return condition + opCodes.PC + PUSH32(offset) + opCodes.ADD + opCodes.JUMPI;
+  return condition + opCodes.PC + PUSH4(offset + 7) + opCodes.ADD + opCodes.JUMPI;
 }
 
 function scan_out_declarations(component) {
@@ -329,8 +329,8 @@ function compile_conditional(expr, closure_lookup) {
   
   const op1_code = compile_expression(operand_1, closure_lookup);
   const op2_code = compile_expression(operand_2, closure_lookup);
-  const op1_length = count_length(op1_code);
-  const op2_length = count_length(op2_code);
+  const op1_length = op1_code.length / 2;
+  const op2_length = op2_code.length / 2;
   
   // if true, op1, jump over op2
   // if false, jump over op1
@@ -352,9 +352,12 @@ function compile_conditional(expr, closure_lookup) {
   // jumpi 
   const cond = compile_expression(op, closure_lookup);
   
-  return make_jump_condition(op2_length + 5, cond) 
+  const after_op2_code_jump = make_jump_immediate(op1_length + 2);
+
+  return make_jump_condition(op2_length + (after_op2_code_jump.length / 2) + 1, cond) 
       + op2_code
-      + make_jump_immediate(op1_length + 5)
+      + after_op2_code_jump
+      + opCodes.JUMPDEST
       + op1_code
       + opCodes.JUMPDEST;
   
@@ -643,6 +646,9 @@ function parse_and_compile(string) {
 
 
 // console.log(parse_and_compile('let y = 1; const x = 3 + y; x + y;'));
-console.log(parse_and_compile(`const z = 5; function f(x, y) {let z = 1; return x + y + z;} let x = 2; f(10, 12) + x + z;`));
+// console.log(parse_and_compile(`const z = 5; function f(x, y) {let z = 1; return x + y + z;} let x = 2; f(10, 12) + x + z;`));
+
+// console.log(parse_and_compile(`1 < 3 ? 2 : 4;`));
+console.log(parse_and_compile(`const z = 5; function f(x, y) {let z = 1; return z > x ? z : x + y + z;} let x = 2; f(10, 12) + x + z;`));
 
 // console.log(constants);
