@@ -105,6 +105,13 @@ function rest_statements(stmts) {
 function is_conditional_combination(expr) {
     return is_tagged_list(expr, "conditional_expression");
 }
+function is_conditional_statement(expr) {
+    return is_tagged_list(expr, "conditional_statement");
+}
+function conditional_statement_to_expression(expr) {
+    (0, list_1.set_head)(expr, "conditional_expression");
+    return expr;
+}
 function operator(expr) {
     return (0, list_1.head)((0, list_1.tail)(expr));
 }
@@ -458,7 +465,10 @@ function compile_expression(expr, closure_lookup) {
         return compile_application(expr, closure_lookup);
     }
     else if (is_return_statement(expr)) {
-        return compile_expression(return_statement_expression(expr), closure_lookup);
+        return compile_expression(return_statement_expression(expr), closure_lookup) + Opcode_1.opCodes.SWAP1 + Opcode_1.opCodes.JUMP;
+    }
+    else if (is_conditional_statement(expr)) {
+        return compile_expression(conditional_statement_to_expression(expr), closure_lookup);
     }
     else {
         const op = operator(expr);
@@ -544,5 +554,14 @@ function parse_and_compile(string) {
 // console.log(parse_and_compile('let y = 1; const x = 3 + y; x + y;'));
 // console.log(parse_and_compile(`const z = 5; function f(x, y) {let z = 1; return x + y + z;} let x = 2; f(10, 12) + x + z;`));
 // console.log(parse_and_compile(`1 < 3 ? 2 : 4;`));
-console.log(parse_and_compile(`const z = 5; function f(x, y) {let z = 1; return z > x ? z : x + y + z;} let x = 2; f(10, 12) + x + z;`));
+// console.log(parse_and_compile(`const z = 5; function f(x, y) {const z = 1; return z > x ? z : x + y + z;} let x = 2; f(10, 12) + x + z;`));
+console.log(parse_and_compile(`
+function f(){
+  if (1 > 2) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+f();`));
 // console.log(constants);
