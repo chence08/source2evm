@@ -231,6 +231,16 @@ function return_statement_expression(stmt) {
 function is_assignment(stmt) {
     return is_tagged_list(stmt, "assignment");
 }
+// loops
+function is_while_loop(expr) {
+    return is_tagged_list(expr, "while_loop");
+}
+function loop_body(expr) {
+    return (0, list_1.head)((0, list_1.tail)((0, list_1.tail)(expr)));
+}
+function loop_condition(expr) {
+    return (0, list_1.head)((0, list_1.tail)(expr));
+}
 function compile_sequence(expr, closure_lookup) {
     // compile for each statement, starting from 1st
     const statements = sequence_statements(expr);
@@ -278,6 +288,34 @@ function compile_conditional(expr, closure_lookup) {
         + Opcode_1.opCodes.JUMPDEST
         + op1_code
         + Opcode_1.opCodes.JUMPDEST;
+}
+function compile_while_loop(expr, closure_lookup) {
+    const body = compile_expression(loop_body(expr), closure_lookup);
+    const cond = compile_expression(loop_condition(expr), closure_lookup);
+    console.log(body);
+    console.log(cond);
+    const dummy = (0, Opcode_1.PUSH4)(0) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMPI + body
+        + Opcode_1.opCodes.DUP1 + (0, Opcode_1.PUSH)(1) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP + Opcode_1.opCodes.JUMPDEST;
+    const middle_len = dummy.length;
+    return Opcode_1.opCodes.PC + Opcode_1.opCodes.JUMPDEST + cond + Opcode_1.opCodes.NOT + Opcode_1.opCodes.PC + (0, Opcode_1.PUSH4)(middle_len)
+        + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMPI + body
+        + Opcode_1.opCodes.DUP1 + (0, Opcode_1.PUSH)(1) + Opcode_1.opCodes.ADD + Opcode_1.opCodes.JUMP + Opcode_1.opCodes.JUMPDEST;
+    // return opCodes.PC + opCodes.JUMPDEST + make_jump_condition((body.length / 2) + 1, cond) 
+    // + body + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST + opCodes.POP;
+    // pc
+    // jump dest 0
+    // condition
+    // pc
+    // len(loop body) + 7
+    // add
+    // jumpi 1
+    // loop body
+    // dup
+    // push 1
+    // add
+    // jump 0
+    // jump dest 1
+    // pop
 }
 /*
 const x = 5;
@@ -402,14 +440,18 @@ function compile_expression(expr, closure_lookup) {
     else if (is_lambda_expression(expr)) {
         return compile_lambda_expression(expr, closure_lookup);
     }
+    else if (is_while_loop(expr)) {
+        return compile_while_loop(expr, closure_lookup);
+    }
     else if (is_variable_declaration(expr) || is_assignment(expr)) {
         const symbol = declaration_symbol(expr);
-        const value = declaration_value(expr);
+        console.log(expr);
+        console.log(constant_declaration_value(expr));
+        const value = compile_expression(constant_declaration_value(expr), closure_lookup);
         // frame_offset is the offset of the current env frame
         console.log(closure_lookup);
-        console.log(value);
-        return (0, Opcode_1.PUSH32)(value)
-            + get_name_offset(closure_lookup, symbol) + Opcode_1.opCodes.MSTORE;
+        console.log("VALUE: " + value);
+        return value + get_name_offset(closure_lookup, symbol) + Opcode_1.opCodes.MSTORE;
         // if (node === undefined) {
         //   console.log(value);
         //   console.log(expr);
@@ -430,8 +472,6 @@ function compile_expression(expr, closure_lookup) {
         // const offset = closure_lookup.search(name)
         console.log(closure_lookup.search(name));
         console.log(closure_lookup.frame_offset);
-        let constant_name_jump = "";
-        // const load_from_heap = getSingleHeapValue(offset); 
         if (closure_lookup.constants.includes(name)) {
             const load_and_jump = load_from_heap + Opcode_1.opCodes.JUMP + Opcode_1.opCodes.JUMPDEST;
             return Opcode_1.opCodes.PC + (0, Opcode_1.PUSH)((load_and_jump.length / 2) + 3) + Opcode_1.opCodes.ADD + load_and_jump;
@@ -560,5 +600,13 @@ function f() {
 }
 let x = 2;
 f() + x;
-`));
+` // return 7
+));
+// console.log(parse_and_compile(`
+// let x = 0;
+// while (x < 3) {
+//   x = x + 1;
+// }
+// x;
+// `))
 // console.log(constants);
