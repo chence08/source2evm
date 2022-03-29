@@ -19,8 +19,7 @@ import Environment from "./Environment";
 
 // start of env, starting at 0x220
 let GLOBAL_OFFSET = 0x220;
-let LOOKUP_TABLE = {};
-const INIT_CODE_LENGTH = 13;
+const INIT_CODE_LENGTH = 29;
 let CONST_OFFSET = INIT_CODE_LENGTH;
 let constants = "";
 
@@ -216,13 +215,13 @@ function function_decl_to_constant_decl(component) {
 }
 
 function final_return() {
-  return PUSH32(0) + opCodes.MSTORE + PUSH32(32) + PUSH32(0) + opCodes.RETURN;
+  return PUSH(0) + opCodes.MSTORE + PUSH(32) + PUSH(0) + opCodes.RETURN;
 }
 
 function compile_program(program) {
   let closure_lookup = new Environment();
   const body = compile_expression(program, closure_lookup) + final_return();
-  const length_of_constants = constants.length / 2 + 13;
+  const length_of_constants = constants.length / 2 + INIT_CODE_LENGTH;
   return PUSH(0) + PUSH4(length_of_constants) + opCodes.JUMP + constants + opCodes.JUMPDEST + body;
   
 }
@@ -318,13 +317,13 @@ function compile_sequence(expr, closure_lookup) {
   console.log(declarations);
   
   for (let i = 0; i < declarations.length; i++) {
-    closure_lookup.insert(declarations[i], (i+1) * 32);
+    closure_lookup.insert(declarations[i]);
   }
   
   closure_lookup.frame_offset = GLOBAL_OFFSET;
   
   const code = map(x => compile_expression(x, closure_lookup), statements);
-  return PUSH32(closure_lookup.frame_offset) + PUSH(0x20) + opCodes.MSTORE + accumulate((x, y) => x + y, "", code);
+  return PUSH4(closure_lookup.frame_offset) + PUSH(32) + opCodes.MSTORE + accumulate((x, y) => x + y, "", code);
 }
 
 function compile_conditional(expr, closure_lookup) {
@@ -482,7 +481,7 @@ function compile_constant(expr, closure_lookup) {
   
   CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
   
-  return closure_lookup.update_mem(name, this_offset, get_name_offset(closure_lookup, name));
+  return closure_lookup.update_mem(name, this_offset, closure_lookup.get_name_offset(name));
 }
 
 function get_stack_offset() {
@@ -497,7 +496,13 @@ function get_current_env_offset() {
 
 function load_lambda_param(local_offset) {
   // already on stack
-  return PUSH32(local_offset) + get_current_env_offset() + opCodes.ADD + opCodes.MSTORE;
+  console.log("local offset");
+
+  console.log(local_offset);
+
+  console.log("local offset");
+
+  return PUSH4(local_offset) + get_current_env_offset() + opCodes.ADD + opCodes.MSTORE;
 }
 
 // function load_lambda_local(x, local_offset)
@@ -510,8 +515,8 @@ function compile_lambda_expression(expr, closure_lookup) {
 
   let extended_env = new Environment(closure_lookup);
 
-  let current_offset = 0;
-  
+  let current_offset = 32;
+
   // list of params
   const parameters = list_to_arr(lambda_parameter_symbols(expr)).reverse();
   let load_params = "";
@@ -523,6 +528,11 @@ function compile_lambda_expression(expr, closure_lookup) {
       current_offset += 32;
     }
   }
+  console.log("++++++++++++++++++++++++++++++++++++++++");
+
+  console.log(extended_env);
+
+  console.log("++++++++++++++++++++++++++++++++++++++++");
 
   if (locals !== null) {
     for (const x of locals) {
@@ -545,7 +555,7 @@ function compile_lambda_expression(expr, closure_lookup) {
  
 function compile_application(expr, closure_lookup) {
   const name = symbol_of_name(function_expression(expr));
-  const function_offset_code = get_name_offset(closure_lookup, name);
+  const function_offset_code = closure_lookup.get_name_offset(name);
   const args = map(x => compile_expression(x, closure_lookup), arg_expressions(expr));
   const arg_code = accumulate((a, b) => a + b, "", args);
   
@@ -564,6 +574,7 @@ function get_name_offset(closure_lookup, name) {
   const frame_offset = get_current_env_offset();
   console.log(frame_offset);
   console.log(name);
+  console.log("GET NAME OFFSET");
   console.log(closure_lookup.search(name));
   return frame_offset + PUSH32(closure_lookup.search(name)) + opCodes.ADD;
 }
@@ -587,7 +598,7 @@ function compile_expression(expr, closure_lookup): string {
     console.log(closure_lookup);
     console.log("VALUE: " + value);
     
-    return value + get_name_offset(closure_lookup, symbol) + opCodes.MSTORE;
+    return value + closure_lookup.get_name_offset(symbol) + opCodes.MSTORE;
       // if (node === undefined) {
       //   console.log(value);
       //   console.log(expr);
@@ -604,7 +615,7 @@ function compile_expression(expr, closure_lookup): string {
       
   } else if (is_name(expr)) {
     const name = symbol_of_name(expr);
-    const load_from_heap = get_name_offset(closure_lookup, name) + opCodes.MLOAD;
+    const load_from_heap = closure_lookup.get_name_offset(name) + opCodes.MLOAD;
       // PUSH32(closure_lookup.search(name) * 32) + opCodes.ADD + opCodes.MLOAD; 
     // const offset = closure_lookup.search(name)
     console.log(closure_lookup.search(name)); 
@@ -721,18 +732,9 @@ function to_hex_and_pad(n, code) {
   return res;
 }
 
-function get_opcode(expr) {
-  const code = head(expr);
-  const data = tail(expr);
-  // if (is_pair(data)) {
-  //     set_head(data, stringify(head(data)));
-  // }
-  return opCodes[code]
-       + (is_pair(data) && is_number(head(data)) ? to_hex_and_pad(head(data), code) : "");
-}
-
 function parse_and_compile(string) {
-  return PUSH(32) + PUSH(0) + opCodes.MSTORE + compile_program(make_sequence(parseNew(string)));
+  return PUSH(0x40) + PUSH(0) + PUSH4(0x220) + PUSH(0x20) + PUSH4(0x220) + PUSH(0x40) 
+    + opCodes.MSTORE + opCodes.MSTORE + opCodes.MSTORE + compile_program(make_sequence(parseNew(string)));
 }
 
 
@@ -770,13 +772,13 @@ function parse_and_compile(string) {
 
 // recursion
 console.log(parse_and_compile(`
-function f(x) {
+function f(x, y) {
   if (x <= 1) {
-    return 1;
+    return y;
   } else {
-    return x + f(x - 1);
+    return f(x - 1, x + y);
   }
 }
-f(100); 
+f(100, 1); 
 `)); //returns 0x13ba
 // console.log(constants);

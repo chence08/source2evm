@@ -1,11 +1,11 @@
-import { PUSH32, PUSH, LDCB, opCodes } from "./Opcode";
+import { PUSH32, PUSH, LDCB, opCodes, PUSH4 } from "./Opcode";
 
 export default class Environment {
   upper_scope: Environment;
   locals: Record<string, number>;
   pc_offset: number;
   frame_offset: number;
-  total_var_count: number = 0;
+  total_var_count: number = 1;
   public constants: string[] = [];
   
   constructor(upper_scope?: Environment, pc_offset?: number) {
@@ -36,8 +36,10 @@ export default class Environment {
   }
 
   insert(key: string) {
-    this.locals[key] = this.total_var_count * 32;
-    this.total_var_count += 1;
+    if (!this.locals.hasOwnProperty(key)) {
+      this.locals[key] = this.total_var_count * 32;
+      this.total_var_count += 1;
+    }
   }
 
   update_mem(name: string, value: number, offset_code: string): string {
@@ -52,7 +54,7 @@ export default class Environment {
   }
 
   get_next_free(): string {
-    const total_offset = PUSH32(Object.keys(this.locals).length * 32);
+    const total_offset = PUSH32(this.total_var_count * 32);
     return PUSH(32) + opCodes.MLOAD + total_offset + opCodes.ADD;
   }
   
@@ -60,10 +62,30 @@ export default class Environment {
     if(this.locals.hasOwnProperty(func)) {
       // current stack pointer + 32 -> change to current heap offset
       // 0x00 change to new stack pointer
-      return PUSH(0) + opCodes.MLOAD + PUSH(32) + opCodes.ADD + opCodes.DUP1 + this.get_next_free() + opCodes.SWAP1 + opCodes.MSTORE + PUSH(0) + opCodes.MSTORE;
+      return PUSH(0) + opCodes.MLOAD + PUSH(32) + opCodes.ADD + opCodes.DUP1 // 2 copies of new pointer to stack
+        + PUSH(0) + opCodes.MSTORE // store to 0x0
+        + this.get_next_free() + opCodes.DUP1 // 2 copies of new env pointer
+        + opCodes.SWAP2 + opCodes.MSTORE // store new env pointer to new stack pointer
+        + PUSH(32) + opCodes.MSTORE; // store new env pointer to 0x20
     } else {
       return "";
     }
+  }
 
+  go_up_stack(): string {
+    return PUSH(32) + PUSH(0) + opCodes.MLOAD + opCodes.SUB + opCodes.DUP1 + PUSH(0) + opCodes.MSTORE + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE;
+  }
+
+  go_down_stack(): string {
+    return PUSH(32) + PUSH(0) + opCodes.MLOAD + opCodes.ADD + opCodes.DUP1 + PUSH(0) + opCodes.MSTORE + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE;
+  }
+
+  get_name_offset(name: string): string {
+    if(this.locals.hasOwnProperty(name)) {
+      return PUSH(32) + opCodes.MLOAD + PUSH4(this.locals[name]) + opCodes.ADD;
+    } else {
+      // return PUSH4(0x220) + PUSH4(this.upper_scope.search(name)) + opCodes.ADD;
+      return this.go_up_stack() + this.upper_scope.get_name_offset(name) + this.go_down_stack();
+    }
   }
 }

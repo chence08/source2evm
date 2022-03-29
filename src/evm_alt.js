@@ -10,7 +10,7 @@ const Environment_1 = require("./Environment");
 // start of env, starting at 0x220
 let GLOBAL_OFFSET = 0x220;
 let LOOKUP_TABLE = {};
-const INIT_CODE_LENGTH = 13;
+const INIT_CODE_LENGTH = 29;
 let CONST_OFFSET = INIT_CODE_LENGTH;
 let constants = "";
 function parseNew(x) {
@@ -164,12 +164,12 @@ function function_decl_to_constant_decl(component) {
     return make_constant_declaration(function_declaration_name(component), make_lambda_expression(function_declaration_parameters(component), function_declaration_body(component)));
 }
 function final_return() {
-    return (0, Opcode_1.PUSH32)(0) + Opcode_1.opCodes.MSTORE + (0, Opcode_1.PUSH32)(32) + (0, Opcode_1.PUSH32)(0) + Opcode_1.opCodes.RETURN;
+    return (0, Opcode_1.PUSH)(0) + Opcode_1.opCodes.MSTORE + (0, Opcode_1.PUSH)(32) + (0, Opcode_1.PUSH)(0) + Opcode_1.opCodes.RETURN;
 }
 function compile_program(program) {
     let closure_lookup = new Environment_1.default();
     const body = compile_expression(program, closure_lookup) + final_return();
-    const length_of_constants = constants.length / 2 + 13;
+    const length_of_constants = constants.length / 2 + INIT_CODE_LENGTH;
     return (0, Opcode_1.PUSH)(0) + (0, Opcode_1.PUSH4)(length_of_constants) + Opcode_1.opCodes.JUMP + constants + Opcode_1.opCodes.JUMPDEST + body;
 }
 function make_jump_immediate(offset) {
@@ -247,11 +247,11 @@ function compile_sequence(expr, closure_lookup) {
     const declarations = list_to_arr(scan_out_declarations(expr));
     console.log(declarations);
     for (let i = 0; i < declarations.length; i++) {
-        closure_lookup.insert(declarations[i], (i + 1) * 32);
+        closure_lookup.insert(declarations[i]);
     }
     closure_lookup.frame_offset = GLOBAL_OFFSET;
     const code = map(x => compile_expression(x, closure_lookup), statements);
-    return (0, Opcode_1.PUSH32)(closure_lookup.frame_offset) + (0, Opcode_1.PUSH)(0x20) + Opcode_1.opCodes.MSTORE + accumulate((x, y) => x + y, "", code);
+    return (0, Opcode_1.PUSH4)(closure_lookup.frame_offset) + (0, Opcode_1.PUSH)(32) + Opcode_1.opCodes.MSTORE + accumulate((x, y) => x + y, "", code);
 }
 function compile_conditional(expr, closure_lookup) {
     const op = operator(expr);
@@ -382,7 +382,7 @@ function compile_constant(expr, closure_lookup) {
     // jump
     constants = constants + Opcode_1.opCodes.JUMPDEST + body + Opcode_1.opCodes.SWAP1 + Opcode_1.opCodes.JUMP;
     CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
-    return closure_lookup.update_mem(name, this_offset, get_name_offset(closure_lookup, name));
+    return closure_lookup.update_mem(name, this_offset, closure_lookup.get_name_offset(name));
 }
 function get_stack_offset() {
     // store stack offset in 0x20
@@ -394,7 +394,10 @@ function get_current_env_offset() {
 }
 function load_lambda_param(local_offset) {
     // already on stack
-    return (0, Opcode_1.PUSH32)(local_offset) + get_current_env_offset() + Opcode_1.opCodes.ADD + Opcode_1.opCodes.MSTORE;
+    console.log("local offset");
+    console.log(local_offset);
+    console.log("local offset");
+    return (0, Opcode_1.PUSH4)(local_offset) + get_current_env_offset() + Opcode_1.opCodes.ADD + Opcode_1.opCodes.MSTORE;
 }
 // function load_lambda_local(x, local_offset)
 function compile_lambda_expression(expr, closure_lookup) {
@@ -403,7 +406,7 @@ function compile_lambda_expression(expr, closure_lookup) {
     const body = is_block(the_body) ? block_body(the_body) : the_body;
     const locals = scan_out_declarations(body);
     let extended_env = new Environment_1.default(closure_lookup);
-    let current_offset = 0;
+    let current_offset = 32;
     // list of params
     const parameters = list_to_arr(lambda_parameter_symbols(expr)).reverse();
     let load_params = "";
@@ -415,6 +418,9 @@ function compile_lambda_expression(expr, closure_lookup) {
             current_offset += 32;
         }
     }
+    console.log("++++++++++++++++++++++++++++++++++++++++");
+    console.log(extended_env);
+    console.log("++++++++++++++++++++++++++++++++++++++++");
     if (locals !== null) {
         for (const x of locals) {
             // assign space for locals
@@ -432,7 +438,7 @@ function compile_lambda_expression(expr, closure_lookup) {
 }
 function compile_application(expr, closure_lookup) {
     const name = symbol_of_name(function_expression(expr));
-    const function_offset_code = get_name_offset(closure_lookup, name);
+    const function_offset_code = closure_lookup.get_name_offset(name);
     const args = map(x => compile_expression(x, closure_lookup), arg_expressions(expr));
     const arg_code = accumulate((a, b) => a + b, "", args);
     const change_env = closure_lookup.update_stack(name);
@@ -445,6 +451,7 @@ function get_name_offset(closure_lookup, name) {
     const frame_offset = get_current_env_offset();
     console.log(frame_offset);
     console.log(name);
+    console.log("GET NAME OFFSET");
     console.log(closure_lookup.search(name));
     return frame_offset + (0, Opcode_1.PUSH32)(closure_lookup.search(name)) + Opcode_1.opCodes.ADD;
 }
@@ -469,7 +476,7 @@ function compile_expression(expr, closure_lookup) {
         // frame_offset is the offset of the current env frame
         console.log(closure_lookup);
         console.log("VALUE: " + value);
-        return value + get_name_offset(closure_lookup, symbol) + Opcode_1.opCodes.MSTORE;
+        return value + closure_lookup.get_name_offset(symbol) + Opcode_1.opCodes.MSTORE;
         // if (node === undefined) {
         //   console.log(value);
         //   console.log(expr);
@@ -485,7 +492,7 @@ function compile_expression(expr, closure_lookup) {
     }
     else if (is_name(expr)) {
         const name = symbol_of_name(expr);
-        const load_from_heap = get_name_offset(closure_lookup, name) + Opcode_1.opCodes.MLOAD;
+        const load_from_heap = closure_lookup.get_name_offset(name) + Opcode_1.opCodes.MLOAD;
         // PUSH32(closure_lookup.search(name) * 32) + opCodes.ADD + opCodes.MLOAD; 
         // const offset = closure_lookup.search(name)
         console.log(closure_lookup.search(name));
@@ -606,17 +613,9 @@ function to_hex_and_pad(n, code) {
     }
     return res;
 }
-function get_opcode(expr) {
-    const code = (0, list_1.head)(expr);
-    const data = (0, list_1.tail)(expr);
-    // if (is_pair(data)) {
-    //     set_head(data, stringify(head(data)));
-    // }
-    return Opcode_1.opCodes[code]
-        + ((0, list_1.is_pair)(data) && is_number((0, list_1.head)(data)) ? to_hex_and_pad((0, list_1.head)(data), code) : "");
-}
 function parse_and_compile(string) {
-    return (0, Opcode_1.PUSH)(32) + (0, Opcode_1.PUSH)(0) + Opcode_1.opCodes.MSTORE + compile_program(make_sequence(parseNew(string)));
+    return (0, Opcode_1.PUSH)(0x40) + (0, Opcode_1.PUSH)(0) + (0, Opcode_1.PUSH4)(0x220) + (0, Opcode_1.PUSH)(0x20) + (0, Opcode_1.PUSH4)(0x220) + (0, Opcode_1.PUSH)(0x40)
+        + Opcode_1.opCodes.MSTORE + Opcode_1.opCodes.MSTORE + Opcode_1.opCodes.MSTORE + compile_program(make_sequence(parseNew(string)));
 }
 // console.log(parse_and_compile('let y = 1; const x = 3 + y; x + y;'));
 // console.log(parse_and_compile(`const z = 5; function f(x, y) {let z = 1; return x + y + z;} let x = 2; f(10, 12) + x + z;`));
@@ -647,14 +646,15 @@ function parse_and_compile(string) {
 // }
 // x;
 // `))
+// recursion
 console.log(parse_and_compile(`
-function f(x) {
+function f(x, y) {
   if (x <= 1) {
-    return 1;
+    return y;
   } else {
-    return x + f(x - 1);
+    return f(x - 1, x + y);
   }
 }
-f(100);
-`));
+f(100, 1); 
+`)); //returns 0x13ba
 // console.log(constants);
