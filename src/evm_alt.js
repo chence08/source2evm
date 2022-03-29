@@ -438,6 +438,7 @@ function compile_application(expr, closure_lookup) {
     const change_env = closure_lookup.update_stack(name);
     const load_args_and_jump = arg_code + function_offset_code + Opcode_1.opCodes.MLOAD + change_env + Opcode_1.opCodes.JUMP + Opcode_1.opCodes.JUMPDEST;
     const call_function = Opcode_1.opCodes.PC + (0, Opcode_1.PUSH)((load_args_and_jump.length / 2) + 3) + Opcode_1.opCodes.ADD + load_args_and_jump;
+    console.log("APPLICATION NAME: " + name);
     return call_function;
 }
 function get_name_offset(closure_lookup, name) {
@@ -536,6 +537,26 @@ function compile_expression(expr, closure_lookup) {
                 //                     list(make_simple_instruction("COND_2")))));
             }
             else {
+                if (op === "<=" || op === ">=") {
+                    const op_code = op === ">=" ? Opcode_1.opCodes.GT : Opcode_1.opCodes.LT;
+                    // op2
+                    // op2
+                    // op1
+                    // op1
+                    // op1
+                    // op2
+                    // op2
+                    // op1
+                    // res
+                    // op2
+                    // op1
+                    // op1
+                    // op2
+                    // res
+                    return compile_expression(operand_1, closure_lookup) + Opcode_1.opCodes.DUP1
+                        + compile_expression(operand_2, closure_lookup) + Opcode_1.opCodes.DUP1
+                        + Opcode_1.opCodes.SWAP2 + op_code + Opcode_1.opCodes.SWAP2 + Opcode_1.opCodes.EQ + Opcode_1.opCodes.OR;
+                }
                 const op_code = op === "+" ? Opcode_1.opCodes.ADD
                     : op === "-" ? Opcode_1.opCodes.SUB
                         : op === "*" ? Opcode_1.opCodes.MUL
@@ -545,7 +566,7 @@ function compile_expression(expr, closure_lookup) {
                                         : op === ">" ? Opcode_1.opCodes.GT
                                             : op === "&&" ? Opcode_1.opCodes.AND
                                                 : /*op === "||" ?*/ Opcode_1.opCodes.OR;
-                if (op_code === Opcode_1.opCodes.DIV || op_code === Opcode_1.opCodes.LT || op_code === Opcode_1.opCodes.GT) {
+                if (op_code === Opcode_1.opCodes.DIV || op_code === Opcode_1.opCodes.LT || op_code === Opcode_1.opCodes.GT || op_code === Opcode_1.opCodes.SUB) {
                     return compile_expression(operand_2, closure_lookup)
                         + compile_expression(operand_1, closure_lookup)
                         + op_code;
@@ -619,11 +640,21 @@ function parse_and_compile(string) {
 // f() + x;
 // ` // return 7
 // ));
+// console.log(parse_and_compile(`
+// let x = 0;
+// while (x < 3) {
+//   x = x + 1;
+// }
+// x;
+// `))
 console.log(parse_and_compile(`
-let x = 0;
-while (x < 3) {
-  x = x + 1;
+function f(x) {
+  if (x <= 1) {
+    return 1;
+  } else {
+    return x + f(x - 1);
+  }
 }
-x;
+f(100);
 `));
 // console.log(constants);

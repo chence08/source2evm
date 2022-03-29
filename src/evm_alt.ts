@@ -555,6 +555,8 @@ function compile_application(expr, closure_lookup) {
 
   const call_function = opCodes.PC + PUSH((load_args_and_jump.length / 2) + 3) + opCodes.ADD + load_args_and_jump;
   
+  console.log("APPLICATION NAME: " + name);
+
   return call_function;
 }
 
@@ -645,24 +647,47 @@ function compile_expression(expr, closure_lookup): string {
               //                 append(compile_expression(operand_2),
               //                     list(make_simple_instruction("COND_2")))));
           } else {
-              const op_code = op === "+" ? opCodes.ADD
-                            : op === "-" ? opCodes.SUB
-                            : op === "*" ? opCodes.MUL
-                            : op === "/" ? opCodes.DIV
-                            : op === "===" ? opCodes.EQ
-                            : op === "<" ? opCodes.LT
-                            : op === ">" ? opCodes.GT
-                            : op === "&&" ? opCodes.AND
-                            : /*op === "||" ?*/ opCodes.OR;
-              if (op_code === opCodes.DIV || op_code === opCodes.LT || op_code === opCodes.GT) {
-                  return compile_expression(operand_2, closure_lookup)
-                         + compile_expression(operand_1, closure_lookup)
-                         + op_code;
+            if (op === "<=" || op === ">=") {
+              const op_code = op === ">=" ? opCodes.GT : opCodes.LT;
+              // op2
+              // op2
+              // op1
+              // op1
 
-              }
-              return compile_expression(operand_1, closure_lookup)
-                    + compile_expression(operand_2, closure_lookup)
-                    + op_code;
+              // op1
+              // op2
+              // op2
+              // op1
+
+              // res
+              // op2
+              // op1
+
+              // op1
+              // op2
+              // res
+              return compile_expression(operand_1, closure_lookup) + opCodes.DUP1 
+                + compile_expression(operand_2, closure_lookup) + opCodes.DUP1 
+                + opCodes.SWAP2 + op_code + opCodes.SWAP2 + opCodes.EQ + opCodes.OR;
+            }
+            const op_code = op === "+" ? opCodes.ADD
+                          : op === "-" ? opCodes.SUB
+                          : op === "*" ? opCodes.MUL
+                          : op === "/" ? opCodes.DIV
+                          : op === "===" ? opCodes.EQ
+                          : op === "<" ? opCodes.LT
+                          : op === ">" ? opCodes.GT
+                          : op === "&&" ? opCodes.AND
+                          : /*op === "||" ?*/ opCodes.OR;
+            if (op_code === opCodes.DIV || op_code === opCodes.LT || op_code === opCodes.GT || op_code === opCodes.SUB) {
+                return compile_expression(operand_2, closure_lookup)
+                        + compile_expression(operand_1, closure_lookup)
+                        + op_code;
+
+            }
+            return compile_expression(operand_1, closure_lookup)
+                  + compile_expression(operand_2, closure_lookup)
+                  + op_code;
           }
       }
   }
@@ -735,11 +760,23 @@ function parse_and_compile(string) {
 // ` // return 7
 // ));
 
+// console.log(parse_and_compile(`
+// let x = 0;
+// while (x < 3) {
+//   x = x + 1;
+// }
+// x;
+// `))
+
+// recursion
 console.log(parse_and_compile(`
-let x = 0;
-while (x < 3) {
-  x = x + 1;
+function f(x) {
+  if (x <= 1) {
+    return 1;
+  } else {
+    return x + f(x - 1);
+  }
 }
-x;
-`))
+f(100); 
+`)); //returns 0x13ba
 // console.log(constants);
