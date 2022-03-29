@@ -795,6 +795,18 @@ function parse_and_compile(string) {
 // `))
 
 // recursion
+// console.log(parse_and_compile(`
+// function f(x) {
+//   if (x <= 1) {
+//     return 1;
+//   } else {
+//     return x + f(x - 1);
+//   }
+// }
+// f(100); 
+// `)); //returns 0x13ba
+
+// recursion with tail call optimisation, will reach stack limit with above algo
 console.log(parse_and_compile(`
 function f(x, y) {
   if (x <= 1) {
@@ -804,5 +816,6 @@ function f(x, y) {
   }
 }
 f(1000, 1); 
-`)); //returns 0x13ba
+`)); //returns 0x7a314
+
 // console.log(constants);

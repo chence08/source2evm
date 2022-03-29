@@ -666,13 +666,24 @@ function parse_and_compile(string) {
 // `))
 // recursion
 console.log(parse_and_compile(`
-function f(x, y) {
+function f(x) {
   if (x <= 1) {
-    return y;
+    return 1;
   } else {
-    return f(x - 1, x + y);
+    return x + f(x - 1);
   }
 }
-f(1000, 1); 
+f(1000); 
 `)); //returns 0x13ba
+// recursion with tail call optimisation
+// console.log(parse_and_compile(`
+// function f(x, y) {
+//   if (x <= 1) {
+//     return y;
+//   } else {
+//     return f(x - 1, x + y);
+//   }
+// }
+// f(1000, 1); 
+// `)); //returns 0x7a314
 // console.log(constants);
