@@ -665,25 +665,25 @@ function parse_and_compile(string) {
 // x;
 // `))
 // recursion
-console.log(parse_and_compile(`
-function f(x) {
-  if (x <= 1) {
-    return 1;
-  } else {
-    return x + f(x - 1);
-  }
-}
-f(1000); 
-`)); //returns 0x13ba
-// recursion with tail call optimisation
 // console.log(parse_and_compile(`
-// function f(x, y) {
+// function f(x) {
 //   if (x <= 1) {
-//     return y;
+//     return 1;
 //   } else {
-//     return f(x - 1, x + y);
+//     return x + f(x - 1);
 //   }
 // }
-// f(1000, 1); 
-// `)); //returns 0x7a314
+// f(100); 
+// `)); //returns 0x13ba
+// recursion with tail call optimisation, will reach stack limit with above algo
+console.log(parse_and_compile(`
+function f(x, y) {
+  if (x <= 1) {
+    return y;
+  } else {
+    return f(x - 1, x * y);
+  }
+}
+f(69, 1); 
+`)); //returns 0x7a314
 // console.log(constants);
