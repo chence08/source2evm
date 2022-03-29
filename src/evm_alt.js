@@ -9,7 +9,6 @@ const Environment_1 = require("./Environment");
 // console.log(parse('x => x * x;', createContext(4)));
 // start of env, starting at 0x220
 let GLOBAL_OFFSET = 0x220;
-let LOOKUP_TABLE = {};
 const INIT_CODE_LENGTH = 29;
 let CONST_OFFSET = INIT_CODE_LENGTH;
 let constants = "";
@@ -447,6 +446,18 @@ function compile_application(expr, closure_lookup) {
     console.log("APPLICATION NAME: " + name);
     return call_function;
 }
+function compile_tail_call_application(expr, closure_lookup) {
+    const name = symbol_of_name(function_expression(expr));
+    const function_offset_code = closure_lookup.get_name_offset(name);
+    const args = map(x => compile_expression(x, closure_lookup), arg_expressions(expr));
+    const arg_code = accumulate((a, b) => a + b, "", args);
+    const move_up_stack = closure_lookup.go_up_stack();
+    closure_lookup = closure_lookup.upper_scope;
+    const change_to_function_env = closure_lookup.update_stack(name);
+    const load_args_and_jump = arg_code + function_offset_code + Opcode_1.opCodes.MLOAD + move_up_stack + change_to_function_env + Opcode_1.opCodes.JUMP + Opcode_1.opCodes.JUMPDEST;
+    const call_function = load_args_and_jump;
+    return call_function;
+}
 function get_name_offset(closure_lookup, name) {
     const frame_offset = get_current_env_offset();
     console.log(frame_offset);
@@ -519,7 +530,14 @@ function compile_expression(expr, closure_lookup) {
         return compile_application(expr, closure_lookup);
     }
     else if (is_return_statement(expr)) {
-        return compile_expression(return_statement_expression(expr), closure_lookup) + Opcode_1.opCodes.SWAP1 + Opcode_1.opCodes.JUMP;
+        const return_expr = return_statement_expression(expr);
+        if (is_application(return_expr)) {
+            // tail call optimisation
+            return compile_tail_call_application(return_expr, closure_lookup);
+        }
+        else {
+            return compile_expression(return_expr, closure_lookup) + Opcode_1.opCodes.SWAP1 + Opcode_1.opCodes.JUMP;
+        }
     }
     else if (is_conditional_statement(expr)) {
         return compile_expression(conditional_statement_to_expression(expr), closure_lookup);
@@ -655,6 +673,6 @@ function f(x, y) {
     return f(x - 1, x + y);
   }
 }
-f(100, 1); 
+f(1000, 1); 
 `)); //returns 0x13ba
 // console.log(constants);
