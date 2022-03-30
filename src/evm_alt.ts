@@ -308,6 +308,27 @@ function loop_body(expr) {
 function loop_condition(expr) {
   return head(tail(expr));
 }
+
+// for loops
+function is_for_loop(expr) {
+  return is_tagged_list(expr, "for_loop");
+}
+
+function init(expr) {
+  return head(tail(expr));
+}
+
+function test(expr) {
+  return head(tail(tail(expr)));
+}
+
+function update(expr) {
+  return head(tail(tail(tail(expr))));
+}
+
+function for_loop_body(expr) {
+  return head(tail(tail(tail(tail(expr)))));
+}
  
 function compile_sequence(expr, closure_lookup) {
   // compile for each statement, starting from 1st
@@ -371,6 +392,41 @@ function compile_conditional(expr, closure_lookup) {
   
 }
 
+function compile_for_loop(expr, closure_lookup) {
+  const init_expression = init(expr);
+  const new_declarations = head(scan_out_declarations(init_expression));
+  closure_lookup.insert(new_declarations);
+
+  const _init = compile_expression(init(expr), closure_lookup);
+  const _test = compile_expression(test(expr), closure_lookup);
+  const _update = compile_expression(update(expr), closure_lookup);
+  const body = compile_expression(for_loop_body(expr), closure_lookup);
+
+  const true_offset = PUSH4(0)
+                      + opCodes.ADD + opCodes.JUMPI
+                      // if true, jump to loop body 
+                      // end loop otherwise
+                      + opCodes.POP + opCodes.PC + PUSH4(0) + opCodes.ADD + opCodes.JUMP
+                      + opCodes.JUMPDEST;
+  const false_offset = PUSH4(0) + opCodes.ADD + opCodes.JUMP
+                      + opCodes.JUMPDEST 
+                      + body + _update
+                      + opCodes.DUP1 + PUSH(0) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST;;
+
+  const true_len = true_offset.length / 2;
+  const false_len = false_offset.length / 2;
+
+  return _init + opCodes.PC + opCodes.JUMPDEST + _test +
+    + opCodes.PC + PUSH4(true_len)
+    + opCodes.ADD + opCodes.JUMPI
+    // if true, jump to loop body 
+    // end loop otherwise
+    + opCodes.POP + opCodes.PC + PUSH4(false_len) + opCodes.ADD + opCodes.JUMP
+    + opCodes.JUMPDEST 
+    + body + _update
+    + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST;
+}
+
 function compile_while_loop(expr, closure_lookup) {
   const body = compile_expression(loop_body(expr), closure_lookup);
   const cond = compile_expression(loop_condition(expr), closure_lookup);
@@ -378,29 +434,29 @@ function compile_while_loop(expr, closure_lookup) {
   console.log(body)
   console.log(cond)
 
-  const dummy = PUSH4(0) 
+  const true_offset = PUSH4(0) 
   + opCodes.ADD + opCodes.JUMPI
   + opCodes.POP + opCodes.PC + PUSH4(0) + opCodes.ADD + opCodes.JUMP
   + opCodes.JUMPDEST;
 
-  const middle_len = dummy.length / 2;
+  const true_len = true_offset.length / 2;
 
-  console.log(middle_len);
+  console.log(true_len);
 
-  const dummy2 = PUSH4(0) + opCodes.ADD + opCodes.JUMP
+  const false_offset = PUSH4(0) + opCodes.ADD + opCodes.JUMP
   + opCodes.JUMPDEST 
   + body 
   + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST;
 
-  const back_len = dummy2.length / 2;
-  console.log(back_len);
+  const false_len = false_offset.length / 2;
+  console.log(false_len);
 
   return opCodes.PC + opCodes.JUMPDEST + cond 
-    + opCodes.PC + PUSH4(middle_len) 
+    + opCodes.PC + PUSH4(true_len) 
     + opCodes.ADD + opCodes.JUMPI
     // if true, jump to loop body 
     // end loop otherwise
-    + opCodes.POP + opCodes.PC + PUSH4(back_len) + opCodes.ADD + opCodes.JUMP
+    + opCodes.POP + opCodes.PC + PUSH4(false_len) + opCodes.ADD + opCodes.JUMP
     + opCodes.JUMPDEST 
     + body 
     + opCodes.DUP1 + PUSH(1) + opCodes.ADD + opCodes.JUMP + opCodes.JUMPDEST;
@@ -426,6 +482,8 @@ function compile_while_loop(expr, closure_lookup) {
   // jump dest 1
   // pop
 }
+
+
 
 /*
 const x = 5;
@@ -606,6 +664,8 @@ function compile_expression(expr, closure_lookup): string {
     return compile_lambda_expression(expr, closure_lookup);
   } else if (is_while_loop(expr)) {
     return compile_while_loop(expr, closure_lookup);
+  } else if (is_for_loop(expr)) {
+    return compile_for_loop(expr, closure_lookup);
   } else if (is_variable_declaration(expr) || is_assignment(expr)) {
     const symbol = declaration_symbol(expr);
     console.log(expr);
@@ -807,15 +867,25 @@ function parse_and_compile(string) {
 // `)); //returns 0x13ba
 
 // recursion with tail call optimisation, will reach stack limit with above algo
-console.log(parse_and_compile(`
-function f(x, y) {
-  if (x <= 1) {
-    return y;
-  } else {
-    return f(x - 1, x + y);
-  }
-}
-f(1000, 1); 
-`)); //returns 0x7a314
+// console.log(parse_and_compile(`
+// function f(x, y) {
+//   if (x <= 1) {
+//     return y;
+//   } else {
+//     return f(x - 1, x + y);
+//   }
+// }
+// f(1000, 1);
+// `)); //returns 0x7a314
 
 // console.log(constants);
+
+// console.log(parse_and_compile(`1/0;`));
+
+console.log(parse_and_compile(`
+let y = 0;
+for (const x = 0; x < 5; x = x + 1) {
+  y = y + 1;
+}
+y;
+`));

@@ -378,3 +378,16 @@ All data are stored as 32 byte words on memory
 
 Only if a function call is a return statement, and is the only expression of the return statement. Same as a normal function call, but before jumping to function, shift stack pointer and environment pointer back to original caller, and do not put return PC of current function on stack. 
 
+### Division by Zero Check within EVM
+
+### Runtime Stack Overflow on EVM
+
+### Nested Functions
+
+### Loops
+
+1. break
+2. continue
+3. for loop closures
+4. 
+
