@@ -47,7 +47,7 @@ export default class Environment {
     console.log(name);
     console.log(value);
     if(this.locals.hasOwnProperty(name)) {
-      return PUSH(value) + offset_code + opCodes.MSTORE;
+      return PUSH4(value) + offset_code + opCodes.MSTORE;
     } else {
       return "";
     }
@@ -60,6 +60,15 @@ export default class Environment {
   
   update_stack(func: string): string {
     if(this.locals.hasOwnProperty(func)) {
+      return this.extend_env();
+    } else if(this.upper_scope != null) {
+      return this.upper_scope.update_stack(func);
+    } else {
+      throw new Error("Function not found");
+    }
+  }
+
+  extend_env(): string {
       // current stack pointer + 32 -> change to current heap offset
       // 0x00 change to new stack pointer
       return PUSH(0) + opCodes.MLOAD + PUSH(32) + opCodes.ADD + opCodes.DUP1 // 2 copies of new pointer to stack
@@ -67,11 +76,7 @@ export default class Environment {
         + this.get_next_free() + opCodes.DUP1 // 2 copies of new env pointer
         + opCodes.SWAP2 + opCodes.MSTORE // store new env pointer to new stack pointer
         + PUSH(32) + opCodes.MSTORE; // store new env pointer to 0x20
-    } else {
-      return "";
-    }
   }
-
   go_up_stack(): string {
     return PUSH(32) + PUSH(0) + opCodes.MLOAD + opCodes.SUB + opCodes.DUP1 + PUSH(0) + opCodes.MSTORE + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE;
   }
@@ -83,9 +88,11 @@ export default class Environment {
   get_name_offset(name: string): string {
     if(this.locals.hasOwnProperty(name)) {
       return PUSH(32) + opCodes.MLOAD + PUSH4(this.locals[name]) + opCodes.ADD;
-    } else {
+    } else if(this.upper_scope != null) {
       // return PUSH4(0x220) + PUSH4(this.upper_scope.search(name)) + opCodes.ADD;
       return this.go_up_stack() + this.upper_scope.get_name_offset(name) + this.go_down_stack();
+    } else {
+      throw new Error("Name not declared: " + name);
     }
   }
 }
