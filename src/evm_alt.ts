@@ -614,20 +614,34 @@ function compile_lambda_expression(expr, closure_lookup) {
 }
  
 function compile_application(expr, closure_lookup) {
-  const name = symbol_of_name(function_expression(expr));
-  const function_offset_code = closure_lookup.get_name_offset(name);
   const args = map(x => compile_expression(x, closure_lookup), arg_expressions(expr));
   const arg_code = accumulate((a, b) => a + b, "", args);
+
+  const function_expr = function_expression(expr);
+  if (is_lambda_expression(function_expr)) {
+    // don't lookup, apply with lambda instead
+    const lambda_code = compile_lambda_expression(function_expr, closure_lookup);
+    constants = constants + opCodes.JUMPDEST + lambda_code + opCodes.SWAP1 + opCodes.JUMP;
+    
+    const this_offset = CONST_OFFSET;
+
+    CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
+
+    const load_args_and_jump = arg_code + PUSH4(this_offset) + opCodes.JUMP + opCodes.JUMPDEST;
+    
+    return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
+  } else {
+
+    const name = symbol_of_name(function_expression(expr));
+    const function_offset_code = closure_lookup.get_name_offset(name);
+  
+    const load_args_and_jump = arg_code + function_offset_code + opCodes.MLOAD + opCodes.JUMP + opCodes.JUMPDEST;
+
+    return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
+  }
   
   // const change_env = closure_lookup.extend_env();
 
-  const load_args_and_jump = arg_code + function_offset_code + opCodes.MLOAD + opCodes.JUMP + opCodes.JUMPDEST;
-
-  const call_function = opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
-  
-  console.log("APPLICATION NAME: " + name);
-
-  return call_function;
 }
 
 function compile_tail_call_application(expr, closure_lookup) {
@@ -844,13 +858,13 @@ function parse_and_compile(string) {
 
 // console.log(parse_and_compile(`1/0;`));
 
-console.log(parse_and_compile(`
-let y = 0;
-for (const x = 0; x < 5; x = x + 1) {
-  y = y + 1;
-}
-y;
-`));
+// console.log(parse_and_compile(`
+// let y = 0;
+// for (const x = 0; x < 5; x = x + 1) {
+//   y = y + 1;
+// }
+// y;
+// `));
 // f(1000, 1); 
 // `)); //returns 0x7a314
 
@@ -877,4 +891,9 @@ y;
 
 // `))
 
-// console.log(constants);
+console.log(parse_and_compile(`
+
+(x => x + 1)(3);
+
+
+`))
