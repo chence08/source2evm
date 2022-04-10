@@ -1,0 +1,45 @@
+% Chapter 1
+
+%\chapter{Chapter Title Here} % Main chapter title
+
+\label{Chapter1} % For referencing the chapter elsewhere, use \ref{Chapter1} 
+
+%----------------------------------------------------------------------------------------
+
+% Define some commands to keep the formatting separated from the content 
+\newcommand{\keyword}[1]{\textbf{#1}}
+\newcommand{\tabhead}[1]{\textbf{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\file}[1]{\texttt{\bfseries#1}}
+\newcommand{\option}[1]{\texttt{\itshape#1}}
+
+%----------------------------------------------------------------------------------------
+
+\section{User-level Documentation}
+In order to define the relation $\cdot[\cdot\leftarrow\cdot]\cdot$ we employ as usual an inductive definition using the following rules.\\\\
+\begin{prooftree}
+	\Infer0[for any name $v$]{v[v\leftarrow E_1]E_1}
+\end{prooftree}\qquad
+\begin{prooftree}
+	\Infer0[for any name $x\neq v$]{x[v\leftarrow E_1]x}
+\end{prooftree}\\\\
+\begin{prooftree}
+	\Hypo{E_1[v\leftarrow E]E_1'}
+	\Hypo{E_2[v\leftarrow E]E_2'}
+	\Infer2{E(E_2)[v\leftarrow E]E_1'(E_2')}
+\end{prooftree}
+
+\section{Developer-level Documentation}
+In order to define the relation $\cdot[\cdot\leftarrow\cdot]\cdot$ we employ as usual an inductive definition using the following rules.\\\\
+\begin{prooftree}
+	\Infer0[for any name $v$]{v[v\leftarrow E_1]E_1}
+\end{prooftree}\qquad
+\begin{prooftree}
+	\Infer0[for any name $x\neq v$]{x[v\leftarrow E_1]x}
+\end{prooftree}\\\\
+\begin{prooftree}
+	\Hypo{E_1[v\leftarrow E]E_1'}
+	\Hypo{E_2[v\leftarrow E]E_2'}
+	\Infer2{E(E_2)[v\leftarrow E]E_1'(E_2')}
+\end{prooftree}
+
