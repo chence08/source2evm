@@ -16,19 +16,145 @@
 %----------------------------------------------------------------------------------------
 
 \section{User-level Documentation}
-In order to define the relation $\cdot[\cdot\leftarrow\cdot]\cdot$ we employ as usual an inductive definition using the following rules.\\\\
-\begin{prooftree}
-	\Infer0[for any name $v$]{v[v\leftarrow E_1]E_1}
-\end{prooftree}\qquad
-\begin{prooftree}
-	\Infer0[for any name $x\neq v$]{x[v\leftarrow E_1]x}
-\end{prooftree}\\\\
-\begin{prooftree}
-	\Hypo{E_1[v\leftarrow E]E_1'}
-	\Hypo{E_2[v\leftarrow E]E_2'}
-	\Infer2{E(E_2)[v\leftarrow E]E_1'(E_2')}
-\end{prooftree}
 
+The Source-to-EVM current supports the compilation of a subset of the Source to bytecode for the Etherum Virtual Machine. Syntax follows that of Source. 
+
+\subsection{Supported Features}
+\begin{itemize}
+  \item Integer arithmetic
+  \item Boolean operations
+  \item Declaration of variables and constants
+  \item Functions
+    \begin{itemize}
+      \item Function declarations and applications
+      \item Named functions and anonymous functions
+      \item Nested functions
+      \item Recursive functions
+      \item Tail recursive functions
+    \end{itemize}
+  \item Conditionals
+    \begin{itemize}
+      \item Ternary operator
+      \item If-else statements
+    \end{itemize}
+  \item While and for loops
+    \begin{itemize}
+      \item Note that \code{break} and \code{continue} are not supported
+    \end{itemize}
+\end{itemize}
+
+\subsection{Operators}
+The following operators are supported: 
+\begin{center}
+  \begin{tabular}{|c | c | c | c|} 
+   \hline
+   Operator & Type of operand 1 & Type of operand 2 & Return type \\ 
+   \hline\hline
+   + & Number & Number & Number \\ 
+   \hline
+   - & Number & Number & Number \\ 
+   \hline
+   * & Number & Number & Number \\ 
+   \hline
+   / & Number & Number & Number \\ 
+   \hline
+   === & Number/Boolean & Number/Boolean & Boolean \\ 
+   \hline
+   < & Number & Number & Boolean \\ 
+   \hline
+   <= & Number & Number & Boolean \\ 
+   \hline
+   > & Number & Number & Boolean \\ 
+   \hline
+   >= & Number & Number & Boolean \\ 
+   \hline
+   \&\& & Boolean & Boolean & Boolean \\ 
+   \hline
+   || & Boolean & Boolean & Boolean \\ 
+   \hline
+   ! & Boolean & - & Boolean \\ 
+   \hline
+  \end{tabular}
+\end{center}
+\\
+The ternary conditional operator is also supported: \\
+\code{condition ? if-true : if-false}
+
+\subsection{Things to note}
+\subsubsection{Output}
+Similar to the Source interpreter, the compiled code will always return the result of the last statement of the given program that has return results. However, unlike the Source interpreter, if none of the statements in the program has return results, the code will return 0. 
+\\\\
+\textbf{Examples:} \\\\
+\code{
+3+4; \\
+2+1; \\
+// output 3 \\
+} \\
+\\
+\code{
+3+4; \\
+let x = 2+1; \\
+// output 7
+} \\
+\\
+\code{
+let y = 7; \\
+let x = 2+1; \\
+// output 0
+}
+
+\subsubsection{Unused return results}
+Due to the compiler's reliance on the EVM's stack for exiting from functions, \textbf{any} unused return values from any statements \textbf{within functions} will cause undefined behaviour, and will likely lead to EVM errors. Such statements can still be used outside of functions. 
+\\\\
+\textbf{Examples:} \\\\
+\code{
+function f() \{\\
+3 + 4; // return value 7 not used, will cause EVM error\\
+return 8;\\
+\}\\
+}\\
+\code{
+function f() \{\\
+3 + 4; // return value 7 not used, will not cause EVM error but should still be avoided\\
+\}\\
+}\\
+\code{
+function f() \{\\
+let x = 3 + 4; // return value 7 is used in assignment\\
+return 8; \\
+\}\\
+}\\
+\code{
+3 + 4; // this is fine as it is not in a function \\
+function f() \{ 
+return 8; 
+\}\\
+}
+
+\subsection{Compile-time Checking}
+There is no static type checking in the compiler, but the compiler will check and throw exceptions for the following: 
+\begin{itemize}
+    \item Reassigning values to constants\\\\
+        e.g.
+        \code{\\
+        const x = 2;\\
+        x = 3; //reassigning const, compiler will throw exception here\\
+        }
+    \item Referring to undeclared name\\\\
+        e.g.
+        \code{\\
+        const x = 2;\\
+        y + 4; //y not declared, compiler will throw exception here\\
+        }
+    \item Using an unknown operator\\\\
+        e.g.
+        \code{\\
+        1 \$ 2; //\$ is not a supported operator\\
+        }
+\end{itemize}
+Note that there will not be any line number information in the error messages. 
+
+\pagebreak
 \section{Developer-level Documentation}
 In order to define the relation $\cdot[\cdot\leftarrow\cdot]\cdot$ we employ as usual an inductive definition using the following rules.\\\\
 \begin{prooftree}
