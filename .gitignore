@@ -3,7 +3,7 @@ node_modules/
 yarn.lock
 package-lock.json
 .DS_Store
-*.js
+output/
 yarn-error.log
 
 ### LaTeX ###
