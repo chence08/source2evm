@@ -246,9 +246,36 @@ function scan_out_declarations(component) {
     : null;
 }
 
+function contains(lst, k) {
+  return is_null(lst)
+    ? false
+    : head(lst) === k
+    ? true
+    : contains(tail(lst), k);
+}
+
+function filter_list(l1, l2) {
+  return is_null(l1)
+    ? null
+    : contains(l2, head(l1))
+    ? filter_list(tail(l1), l2)
+    : pair(head(l1), filter_list(tail(l1), l2));
+}
+
 function scan_out_names(component) {
   return is_name(component)
   ? list(symbol_of_name(component))
+  : is_function_declaration(component)
+  ? filter_list(
+        filter_list(
+            scan_out_names(function_declaration_body(component)), 
+            scan_out_declarations(
+              is_block(function_declaration_body(component)) 
+                ? block_body(function_declaration_body(component)) 
+                : function_declaration_body(component))),
+        function_declaration_parameters(component))
+  : is_lambda_expression(component)
+  ? filter_list(filter_list(scan_out_names(lambda_body(component)), scan_out_declarations(component)), lambda_parameter_symbols(component))
   : is_pair(component)
   ? accumulate(append, null, map(scan_out_names, component))
   : null;

@@ -1,13 +1,13 @@
 function f() {
   function j() {
     function k() {
-      return 3;
+      return 3 + y;
     }
     return k() + 2;
   }
-  return y + 1 + j();
+  return 1 + y+ j();
 }
 const y = 2;
 
 f();
-// expected 12
+// expected 10
