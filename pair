@@ -1,0 +1,4 @@
+function pair(a, b) {
+    return value => (value === 0 ? a : b);
+}
+pair(1, 2)(0);
