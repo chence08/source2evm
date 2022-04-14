@@ -256,7 +256,7 @@ function filter_list(l1, l2) {
 }
 
 function scan_out_names(component) {
-  return is_name(component)
+  const names = is_name(component)
   ? list(symbol_of_name(component))
   : is_function_declaration(component)
   ? filter_list(
@@ -272,6 +272,10 @@ function scan_out_names(component) {
   : is_pair(component)
   ? accumulate(append, null, map(scan_out_names, component))
   : null;
+
+  return filter_list(
+              names, 
+              scan_out_declarations(component))
 }
 
 // DECLARATIONS
@@ -358,10 +362,31 @@ function for_loop_body(expr) {
   return head(tail(tail(tail(tail(expr)))));
 }
  
+function scan_out_function_declarations(component) {
+  return is_function_declaration(component)
+    ? pair(component, scan_out_function_declarations(function_declaration_body(component)))
+    // : is_lambda_expression(component)
+    // ? pair(component, scan_out_functions(lambda_body(component)))
+    : is_pair(component)
+    ? accumulate(append, null, map(scan_out_function_declarations, component))
+    : null;
+}
+
 function compile_sequence(expr, closure_lookup) {
   // compile for each statement, starting from 1st
   const statements = sequence_statements(expr);
   const declarations = list_to_arr(scan_out_declarations(expr));
+
+  const functions = scan_out_function_declarations(expr);
+  let function_names = map(symbol_of_name, map(function_declaration_name, functions));
+  let function_captures = map(scan_out_names, functions);
+
+  while (!is_null(function_names)) {
+    closure_lookup.funcs[head(function_names)] = list_to_arr(head(function_captures));
+    function_names = tail(function_names);
+    function_captures = tail(function_captures);
+  }
+
 
   // const extend_env_code = closure_lookup.extend_env();
 
@@ -724,11 +749,13 @@ function compile_tail_call_application(expr, closure_lookup) {
 
   const move_up_stack = closure_lookup.go_up_stack();
 
-  closure_lookup = closure_lookup.upper_scope;
+  const captures = closure_lookup.funcs[name];
+
+  const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
 
   // const change_to_function_env = closure_lookup.update_stack(name);
 
-  const load_args_and_jump = arg_code + function_offset_code + opCodes.MLOAD + move_up_stack + opCodes.JUMP + opCodes.JUMPDEST;
+  const load_args_and_jump = capture_code + arg_code + function_offset_code + opCodes.MLOAD + move_up_stack + opCodes.JUMP + opCodes.JUMPDEST;
 
   const call_function = load_args_and_jump;
 

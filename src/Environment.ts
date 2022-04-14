@@ -13,11 +13,12 @@ export default class Environment {
   constructor(upper_scope?: Environment, pc_offset?: number) {
     if (upper_scope) {
       this.upper_scope = upper_scope;
+      this.funcs = upper_scope.funcs;
     } else {
+      this.funcs = {};
       this.upper_scope = null;
     }
     this.locals = {};
-    this.funcs = {};
     if (pc_offset) {
       this.pc_offset = pc_offset;
     } else {
