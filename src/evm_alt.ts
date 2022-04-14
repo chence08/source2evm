@@ -5,13 +5,6 @@ import { parse } from "js-slang/dist/stdlib/parser";
 
 import { PUSH32, PUSH, PUSH4, LDCB, opCodes } from "./Opcode";
 
-import Node from "./Node";
-import { Integer, Boolean, Character } from "./Primitives";
-
-import NameLookupTable from "./NameLookupTable";
-
-import { getSingleHeapValue } from "./misc";
-
 import Environment from "./Environment";
 
 
@@ -684,18 +677,25 @@ function compile_application(expr, closure_lookup) {
     const lambda_code = compile_lambda_expression(function_expr, closure_lookup).code_val;
     constants = constants + opCodes.JUMPDEST + lambda_code + opCodes.SWAP1 + opCodes.JUMP;
     
+    const body_block = lambda_body(function_expr);
+    const body = is_block(body_block) ? block_body(body_block) : body_block;
+    const captures = list_to_arr(filter_list(filter_list(scan_out_names(body), scan_out_declarations(body)), lambda_parameter_symbols(function_expr)));
+    const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
+
     const this_offset = CONST_OFFSET;
 
     CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
 
-    const load_args_and_jump = arg_code + PUSH4(this_offset) + opCodes.JUMP + opCodes.JUMPDEST;
+    const load_args_and_jump = capture_code + arg_code + PUSH4(this_offset) + opCodes.JUMP + opCodes.JUMPDEST;
     
     return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   } else if (is_application(function_expr)) {
-    const application_code = compile_application(function_expr, closure_lookup);
+    throw new Error("Functions as return result is not supported. ");
+    
+    // const application_code = compile_application(function_expr, closure_lookup);
 
-    const load_args_and_jump = arg_code + application_code;
-    return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
+    // const load_args_and_jump = arg_code + application_code;
+    // return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   } else {
 
     const name = symbol_of_name(function_expression(expr));
