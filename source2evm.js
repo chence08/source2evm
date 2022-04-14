@@ -96,7 +96,8 @@ try {
     let res = execSync(evm + (debug ? " --debug" : "") + " --code " + compiled + " run");
     const output = Number(res);
     if (isNaN(output)) {
-      console.log(res);
+      console.log("EVM error!");
+      console.log(String(res));
     } else {
       console.log(output);
     }

@@ -30,6 +30,7 @@ export const opCodes = {
   "SWAP2" : "91", 
   "DUP1" : "80", 
   "POP" : "50", 
+  "ISZERO" : "15", 
 }
 
 export function PUSH32(i: number): string {
