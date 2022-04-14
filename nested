@@ -5,9 +5,9 @@ function f() {
     }
     return k() + 2;
   }
-  return 1 + y+ j();
+  return j() + j();
 }
 const y = 2;
 
 f();
-// expected 10
+// expected 14

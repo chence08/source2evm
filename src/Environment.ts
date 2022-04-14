@@ -73,7 +73,9 @@ export default class Environment {
       // 0x00 change to new stack pointer
       return PUSH(0) + opCodes.MLOAD + PUSH(32) + opCodes.ADD + opCodes.DUP1 // 2 copies of new pointer to stack
         + PUSH(0) + opCodes.MSTORE // store to 0x0
-        + this.get_next_free() + opCodes.DUP1 // 2 copies of new env pointer
+        + this.get_next_free() + opCodes.DUP1 // + opCodes.DUP1 // 3 copies of new env pointer
+        // + PUSH(32) + opCodes.MLOAD
+        // + opCodes.SWAP1 + opCodes.MSTORE
         + opCodes.SWAP2 + opCodes.MSTORE // store new env pointer to new stack pointer
         + PUSH(32) + opCodes.MSTORE; // store new env pointer to 0x20
   }
@@ -81,6 +83,7 @@ export default class Environment {
     // return PUSH(32) + PUSH(0) + opCodes.MLOAD + opCodes.SUB + PUSH(0) + opCodes.MSTORE
     //      + PUSH(0) + opCodes.MLOAD + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE;
     return PUSH(32) + PUSH(0) + opCodes.MLOAD + opCodes.SUB + opCodes.DUP1 + PUSH(0) + opCodes.MSTORE + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE;
+    // return PUSH(32) + opCodes.MLOAD + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE + PUSH(32) + PUSH(0) + opCodes.MLOAD + opCodes.SUB + PUSH(0) + opCodes.MSTORE;
   }
 
   go_down_stack(): string {
@@ -96,12 +99,12 @@ export default class Environment {
       // console.log(layer);
       // return PUSH(0x20) + PUSH4(layer * 32) + opCodes.ADD + opCodes.MLOAD + PUSH4(this.locals[name]) + opCodes.ADD
       return PUSH(32) + opCodes.MLOAD + PUSH4(this.locals[name]) + opCodes.ADD;
-    } else if(this.upper_scope !== null) {
-      // return this.upper_scope.get_name_offset(name);
-      // return PUSH4(0x220) + PUSH4(this.upper_scope.search(name)) + opCodes.ADD;
-      return this.go_up_stack() + this.upper_scope.get_name_offset(name) + this.go_down_stack();
+    // } else if(this.upper_scope !== null) {
+    //   // return this.upper_scope.get_name_offset(name);
+    //   // return PUSH4(0x220) + PUSH4(this.upper_scope.search(name)) + opCodes.ADD;
+    //   return this.go_up_stack() + this.upper_scope.get_name_offset(name) + this.go_down_stack();
     } else {
-      console.log(name);
+      // console.log(name);
       throw new Error("Name not declared: " + name);
     }
   }

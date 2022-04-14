@@ -370,18 +370,18 @@ function compile_sequence(expr, closure_lookup) {
   const statements = sequence_statements(expr);
   const declarations = list_to_arr(scan_out_declarations(expr));
 
-  const extend_env_code = closure_lookup.extend_env();
+  // const extend_env_code = closure_lookup.extend_env();
 
-  let extended_env = new Environment(closure_lookup);
+  // let extended_env = new Environment(closure_lookup);
   // console.log(declarations);
   
   for (let i = 0; i < declarations.length; i++) {
-    extended_env.insert(declarations[i]);
+    closure_lookup.insert(declarations[i]);
   }
 
-  const code = map(x => compile_expression(x, extended_env), statements);
+  const code = map(x => compile_expression(x, closure_lookup), statements);
 
-  return extend_env_code + accumulate((x, y) => x + y, "", code) + extended_env.go_up_stack();
+  return accumulate((x, y) => x + y, "", code);
 }
 
 function compile_conditional(expr, closure_lookup) {
@@ -562,9 +562,7 @@ function compile_constant(expr, closure_lookup) {
   const body_expr = constant_declaration_value(expr);
 
   // add constant name to closure constants list
-  console.log("HIHII");
   closure_lookup.constants.push(name);
-  console.log(name);
 
   // use normal assignment if is not a function
   if (!is_lambda_expression(body_expr)) {
@@ -575,7 +573,6 @@ function compile_constant(expr, closure_lookup) {
 
   const res = compile_lambda_expression(constant_declaration_value(expr), closure_lookup);
 
-  console.log(res);
   const body = res.code_val;
 
   const captures = res.captures;
@@ -635,7 +632,6 @@ function compile_lambda_expression(expr, closure_lookup) {
 
   const all_names = [...parameters.reverse(), ...captured];
 
-  console.log("all_names: " + all_names);
   let load_params = "";
 
   // all captures are on stack
@@ -671,7 +667,6 @@ function compile_lambda_expression(expr, closure_lookup) {
   // return result or last computation stored on stack
   // need to pop stack frame and move stack pointer back by 32
   const return_stack_frame = closure_lookup.go_up_stack();
-  console.log(extended_env);
   // const return_stack_pointer = PUSH(32) + get_stack_offset() + opCodes.SUB + opCodes.DUP1 + PUSH(0) + opCodes.MSTORE + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE
   return {
     code_val: code + return_stack_frame, 
@@ -704,20 +699,15 @@ function compile_application(expr, closure_lookup) {
   } else {
 
     const name = symbol_of_name(function_expression(expr));
-    console.log('====================================');
-
-    console.log(expr);
-    console.log('====================================');
 
     const function_offset_code = closure_lookup.get_name_offset(name);
   
     const captures = closure_lookup.funcs[name];
-    console.log(captures);
 
     const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
 
 
-    const load_args_and_jump = capture_code + arg_code + function_offset_code + opCodes.MLOAD + opCodes.JUMP + opCodes.JUMPDEST;
+    const load_args_and_jump = capture_code + arg_code + function_offset_code + opCodes.MLOAD + opCodes.JUMP + closure_lookup.go_up_stack() + opCodes.JUMPDEST;
 
     return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   }
