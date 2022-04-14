@@ -5,13 +5,6 @@ import { parse } from "js-slang/dist/stdlib/parser";
 
 import { PUSH32, PUSH, PUSH4, LDCB, opCodes } from "./Opcode";
 
-import Node from "./Node";
-import { Integer, Boolean, Character } from "./Primitives";
-
-import NameLookupTable from "./NameLookupTable";
-
-import { getSingleHeapValue } from "./misc";
-
 import Environment from "./Environment";
 
 
@@ -246,6 +239,45 @@ function scan_out_declarations(component) {
     : null;
 }
 
+function contains(lst, k) {
+  return is_null(lst)
+    ? false
+    : head(lst) === k
+    ? true
+    : contains(tail(lst), k);
+}
+
+function filter_list(l1, l2) {
+  return is_null(l1)
+    ? null
+    : contains(l2, head(l1))
+    ? filter_list(tail(l1), l2)
+    : pair(head(l1), filter_list(tail(l1), l2));
+}
+
+function scan_out_names(component) {
+  const names = is_name(component)
+  ? list(symbol_of_name(component))
+  : is_function_declaration(component)
+  ? filter_list(
+        filter_list(
+            scan_out_names(function_declaration_body(component)), 
+            scan_out_declarations(
+              is_block(function_declaration_body(component)) 
+                ? block_body(function_declaration_body(component)) 
+                : function_declaration_body(component))),
+        function_declaration_parameters(component))
+  : is_lambda_expression(component)
+  ? filter_list(filter_list(scan_out_names(lambda_body(component)), scan_out_declarations(component)), lambda_parameter_symbols(component))
+  : is_pair(component)
+  ? accumulate(append, null, map(scan_out_names, component))
+  : null;
+
+  return filter_list(
+              names, 
+              scan_out_declarations(component))
+}
+
 // DECLARATIONS
 
 function is_constant_declaration(stmt) {
@@ -330,23 +362,44 @@ function for_loop_body(expr) {
   return head(tail(tail(tail(tail(expr)))));
 }
  
+function scan_out_function_declarations(component) {
+  return is_function_declaration(component)
+    ? pair(component, scan_out_function_declarations(function_declaration_body(component)))
+    // : is_lambda_expression(component)
+    // ? pair(component, scan_out_functions(lambda_body(component)))
+    : is_pair(component)
+    ? accumulate(append, null, map(scan_out_function_declarations, component))
+    : null;
+}
+
 function compile_sequence(expr, closure_lookup) {
   // compile for each statement, starting from 1st
   const statements = sequence_statements(expr);
   const declarations = list_to_arr(scan_out_declarations(expr));
 
-  const extend_env_code = closure_lookup.extend_env();
+  const functions = scan_out_function_declarations(expr);
+  let function_names = map(symbol_of_name, map(function_declaration_name, functions));
+  let function_captures = map(scan_out_names, functions);
 
-  let extended_env = new Environment(closure_lookup);
+  while (!is_null(function_names)) {
+    closure_lookup.funcs[head(function_names)] = list_to_arr(head(function_captures));
+    function_names = tail(function_names);
+    function_captures = tail(function_captures);
+  }
+
+
+  // const extend_env_code = closure_lookup.extend_env();
+
+  // let extended_env = new Environment(closure_lookup);
   // console.log(declarations);
   
   for (let i = 0; i < declarations.length; i++) {
-    extended_env.insert(declarations[i]);
+    closure_lookup.insert(declarations[i]);
   }
 
-  const code = map(x => compile_expression(x, extended_env), statements);
+  const code = map(x => compile_expression(x, closure_lookup), statements);
 
-  return extend_env_code + accumulate((x, y) => x + y, "", code) + extended_env.go_up_stack();
+  return accumulate((x, y) => x + y, "", code);
 }
 
 function compile_conditional(expr, closure_lookup) {
@@ -526,6 +579,7 @@ function compile_constant(expr, closure_lookup) {
   const name = declaration_symbol(expr);
   const body_expr = constant_declaration_value(expr);
 
+  // add constant name to closure constants list
   closure_lookup.constants.push(name);
 
   // use normal assignment if is not a function
@@ -533,9 +587,15 @@ function compile_constant(expr, closure_lookup) {
     return compile_assignment(expr, closure_lookup, false);
   }
 
-  const body = compile_expression(constant_declaration_value(expr), closure_lookup);
+  closure_lookup.next_name = name;
 
-  // add constant name to closure constants list
+  const res = compile_lambda_expression(constant_declaration_value(expr), closure_lookup);
+
+  const body = res.code_val;
+
+  const captures = res.captures;
+
+  closure_lookup.funcs[name] = captures;
 
   const this_offset = CONST_OFFSET;
   // console.log("OFFSET: " + this_offset);
@@ -577,22 +637,38 @@ function compile_lambda_expression(expr, closure_lookup) {
 
   let current_offset = 32;
 
+  let current_name = closure_lookup.next_name;
+
   // list of params
-  const parameters = list_to_arr(lambda_parameter_symbols(expr)).reverse();
+  const parameters = list_to_arr(lambda_parameter_symbols(expr));
+  
+  const captured = [...new Set(list_to_arr(scan_out_names(body)))]
+          .filter(x => 
+            !((parameters !== null && parameters.includes(x)) || (locals !== null && locals.includes(x))));
+
+  extended_env.funcs[current_name] = captured;
+
+  const all_names = [...parameters.reverse(), ...captured];
+
   let load_params = "";
+
+  // all captures are on stack
   // all params are on stack, in reverse order, i.e. last argument on top
-  if (parameters !== null) {
-    for (const x of parameters) {
+  if (all_names !== null) {
+    for (const x of all_names) {
       load_params = load_params + load_lambda_param(current_offset)
       extended_env.insert(x);
       current_offset += 32;
     }
   }
-  // console.log("++++++++++++++++++++++++++++++++++++++++");
 
-  // console.log(extended_env);
-
-  // console.log("++++++++++++++++++++++++++++++++++++++++");
+  // if (captured !== null) {
+  //   for (const x of captured) {
+  //     load_params = load_params + load_lambda_param(current_offset)
+  //     extended_env.insert(x);
+  //     current_offset += 32;
+  //   }
+  // }
 
   if (locals !== null) {
     for (const x of locals) {
@@ -610,7 +686,10 @@ function compile_lambda_expression(expr, closure_lookup) {
   // need to pop stack frame and move stack pointer back by 32
   const return_stack_frame = closure_lookup.go_up_stack();
   // const return_stack_pointer = PUSH(32) + get_stack_offset() + opCodes.SUB + opCodes.DUP1 + PUSH(0) + opCodes.MSTORE + opCodes.MLOAD + PUSH(32) + opCodes.MSTORE
-  return code + return_stack_frame;
+  return {
+    code_val: code + return_stack_frame, 
+    captures: captured
+  };
 }
  
 function compile_application(expr, closure_lookup) {
@@ -620,22 +699,40 @@ function compile_application(expr, closure_lookup) {
   const function_expr = function_expression(expr);
   if (is_lambda_expression(function_expr)) {
     // don't lookup, apply with lambda instead
-    const lambda_code = compile_lambda_expression(function_expr, closure_lookup);
+    const lambda_code = compile_lambda_expression(function_expr, closure_lookup).code_val;
     constants = constants + opCodes.JUMPDEST + lambda_code + opCodes.SWAP1 + opCodes.JUMP;
     
+    const body_block = lambda_body(function_expr);
+    const body = is_block(body_block) ? block_body(body_block) : body_block;
+    const captures = list_to_arr(filter_list(filter_list(scan_out_names(body), scan_out_declarations(body)), lambda_parameter_symbols(function_expr)));
+    const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
+
     const this_offset = CONST_OFFSET;
 
     CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
 
-    const load_args_and_jump = arg_code + PUSH4(this_offset) + opCodes.JUMP + opCodes.JUMPDEST;
+    const load_args_and_jump = capture_code + arg_code + PUSH4(this_offset) + opCodes.JUMP + opCodes.JUMPDEST;
     
     return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
+  } else if (is_application(function_expr)) {
+    throw new Error("Functions as return result is not supported. ");
+    
+    // const application_code = compile_application(function_expr, closure_lookup);
+
+    // const load_args_and_jump = arg_code + application_code;
+    // return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   } else {
 
     const name = symbol_of_name(function_expression(expr));
+
     const function_offset_code = closure_lookup.get_name_offset(name);
   
-    const load_args_and_jump = arg_code + function_offset_code + opCodes.MLOAD + opCodes.JUMP + opCodes.JUMPDEST;
+    const captures = closure_lookup.funcs[name];
+
+    const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
+
+
+    const load_args_and_jump = capture_code + arg_code + function_offset_code + opCodes.MLOAD + opCodes.JUMP + closure_lookup.go_up_stack() + opCodes.JUMPDEST;
 
     return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   }
@@ -652,11 +749,13 @@ function compile_tail_call_application(expr, closure_lookup) {
 
   const move_up_stack = closure_lookup.go_up_stack();
 
-  closure_lookup = closure_lookup.upper_scope;
+  const captures = closure_lookup.funcs[name];
+
+  const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
 
   // const change_to_function_env = closure_lookup.update_stack(name);
 
-  const load_args_and_jump = arg_code + function_offset_code + opCodes.MLOAD + move_up_stack + opCodes.JUMP + opCodes.JUMPDEST;
+  const load_args_and_jump = capture_code + arg_code + function_offset_code + opCodes.MLOAD + move_up_stack + opCodes.JUMP + opCodes.JUMPDEST;
 
   const call_function = load_args_and_jump;
 
@@ -686,7 +785,8 @@ function compile_expression(expr, closure_lookup): string {
   } else if (is_boolean_literal(expr)) {
     return LDCB(literal_value(expr));
   } else if (is_lambda_expression(expr)) {
-    return compile_lambda_expression(expr, closure_lookup);
+    let res = compile_lambda_expression(expr, closure_lookup);
+    return res.code_val;
   } else if (is_while_loop(expr)) {
     return compile_while_loop(expr, closure_lookup);
   } else if (is_for_loop(expr)) {
@@ -734,7 +834,8 @@ function compile_expression(expr, closure_lookup): string {
       // console.log(expr);
       const operand_1 = first_operand(expr);
       if (op === "!") {
-          return compile_expression(operand_1, closure_lookup) + opCodes.NOT;
+          return compile_expression(operand_1, closure_lookup)
+            + opCodes.ISZERO;
       } else {
           const operand_2 = second_operand(expr);
           if (is_conditional_combination(expr) && is_boolean_literal(op)) {
@@ -777,7 +878,11 @@ function compile_expression(expr, closure_lookup): string {
                           : op === "<" ? opCodes.LT
                           : op === ">" ? opCodes.GT
                           : op === "&&" ? opCodes.AND
-                          : /*op === "||" ?*/ opCodes.OR;
+                          : op === "||" ? opCodes.OR
+                          : null;
+            if (op_code === null) {
+              throw new Error("Unknown operator: " + op);
+            }
             if (op_code === opCodes.DIV || op_code === opCodes.LT || op_code === opCodes.GT || op_code === opCodes.SUB) {
                 return compile_expression(operand_2, closure_lookup)
                         + compile_expression(operand_1, closure_lookup)
