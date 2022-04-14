@@ -76,7 +76,7 @@ The following operators are supported:
    \hline
   \end{tabular}
 \end{center}
-\\
+
 The ternary conditional operator is also supported: \\
 \code{condition ? if-true : if-false}
 
@@ -365,3 +365,43 @@ Instead of extending the current closure to capture variables from outer scopes,
 \subsubsection{Tail call optimisation}
 
 \subsubsection{Anonymous Functions}
+
+\subsection{Garbage Collection}
+
+Garbage collection is implicitly implemented in our compiler design.\\\\
+Testament:
+\begin{itemize}
+	\item For loop that calls a function that creates a bunch of variables. Each function call creates a new Environment, but the heap (memory) size will stay relatively constant
+	\begin{verbatim}
+		function f() {
+		    let x = 5;
+		    let y = 6;
+		}
+		for (let i = 0; i < 3; i = i + 1) {
+		    f();
+		}
+	\end{verbatim}
+	\item tail\_recursion would take up constant space in the heap.
+\end{itemize}
+
+\subsection{Compiler functions}
+\subsubsection{\texttt{compile\_expression}}
+
+\subsubsection{\texttt{compile\_sequence}}
+
+\subsubsection{\texttt{compile\_constant}}
+
+\subsubsection{\texttt{compile\_conditional}}
+
+\subsubsection{\texttt{compile\_while\_loop}}
+
+\subsubsection{\texttt{compile\_for\_loop}}
+
+\subsubsection{\texttt{compile\_lambda\_expression}}
+
+\subsubsection{\texttt{compile\_application}}
+
+\subsubsection{\texttt{compile\_tail\_call\_recursion}}
+
+\subsection{Running the suite}
+

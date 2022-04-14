@@ -56,6 +56,7 @@ slide-transition: true
 | `JUMPI`    | destination, condition |              | jump if true                                           |
 | `PC`       |                        | PC           | program counter                                        |
 | `SWAPx`    | `a ... b`              |              | swap the top of the stack with the `x`-th last element |
+| `DUP1`     | value                  | value, value | clones the last value on the stack                     |
 | `RETURN`   | offset, length         |              | Halt execution and return output data                  |
 
 ------

@@ -5,6 +5,8 @@ package-lock.json
 .DS_Store
 output/
 yarn-error.log
+*.js
+!source2evm.js
 
 ### LaTeX ###
 *.acn

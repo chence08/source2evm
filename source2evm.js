@@ -15,7 +15,7 @@ const arch_type = require('os').arch();
 let evm = "";
 
 if (arch_type === 'x64') {
-  evm = "bin/evm";
+  evm = "bin/evm_arm";
 } else if (arch_type === 'arm') {
   evm = "bin/evm_arm"
 } else{
