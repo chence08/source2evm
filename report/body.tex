@@ -134,28 +134,28 @@ return 8;
 \subsection{Compile-time Checking}
 There is no static type checking in the compiler, but the compiler will check and throw exceptions for the following: 
 \begin{itemize}
-    \item Reassigning values to constants\\\\
-        e.g.
-        \code{\\
-        const x = 2;\\
-        x = 3; //reassigning const, compiler will throw exception here\\
-        }
-    \item Referring to undeclared name\\\\
-        e.g.
-        \code{\\
-        const x = 2;\\
-        y + 4; //y not declared, compiler will throw exception here\\
-        }
-    \item Using an unknown operator\\\\
-        e.g.
-        \code{\\
-        1 \$ 2; //\$ is not a supported operator\\
-        }
+\item Reassigning values to constants\\
+e.g.
+\begin{verbatim}
+    const x = 2;
+    x = 3; // reassigning const, compiler will throw exception here
+\end{verbatim}
+\item Referring to undeclared name\\
+e.g.
+\begin{verbatim}
+    const x = 2;
+    y + 4; // y not declared, compiler will throw exception here
+\end{verbatim}
+
+\item Using an unknown operator\\
+e.g.
+\begin{verbatim}
+    1 $ 2; // $ is not a supported operator
+\end{verbatim}
+
 \end{itemize}
 Note that there will not be any line number information in the error messages. 
 
-\pagebreak
-\section{Developer-level Documentation}
 In order to define the relation $\cdot[\cdot\leftarrow\cdot]\cdot$ we employ as usual an inductive definition using the following rules.\\\\
 \begin{prooftree}
 	\Infer0[for any name $v$]{v[v\leftarrow E_1]E_1}
@@ -167,5 +167,201 @@ In order to define the relation $\cdot[\cdot\leftarrow\cdot]\cdot$ we employ as 
 	\Hypo{E_1[v\leftarrow E]E_1'}
 	\Hypo{E_2[v\leftarrow E]E_2'}
 	\Infer2{E(E_2)[v\leftarrow E]E_1'(E_2')}
-\end{prooftree}
+\end{prooftree}\\\\\\
 
+\pagebreak
+\section{Developer-level Documentation}
+\subsection{Operators}
+When a known number needs to be pushed onto the operand stack, \code{PUSH32} is always used to push it as a 256 bytes integer. \\\\
+\begin{prooftree}
+    \Hypo{n\rightarrow i}
+    \Infer1{n \hookrightarrow PUSH32 \cdot i}
+\end{prooftree}\\\\
+For most operators with equivalent EVM instructions, the translation is simply a mapping to the equivalent instructions. Note that for operators where the order of the operands matter, e.g. \code{-} and \code{<}, the order in which operands are computed and pushed onto the stack is flipped, where the second operand is pushed first, due to how EVM instructions operate on the stack. \\\\
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 + E_2 \hookrightarrow s_1 s_2 ADD}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 - E_2 \hookrightarrow s_2 s_1 SUB}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 * E_2 \hookrightarrow s_1 s_2 MUL}
+\end{prooftree}\\\\\\
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 / E_2 \hookrightarrow s_2 s_1 DIV}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 === E_2 \hookrightarrow s_1 s_2 EQ}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 < E_2 \hookrightarrow s_2 s_1 LT }
+\end{prooftree} \\\\\\
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 > E_2 \hookrightarrow s_2 s_1 GT}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 \&\& E_2 \hookrightarrow s_1 s_2 AND}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 || E_2 \hookrightarrow s_2 s_1 OR}
+\end{prooftree}\\\\\\
+Operators without any equivalents are translated to a combination of instructions. \\\\
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 <= E_2 \hookrightarrow s_1 s_2 EQ \cdot s_2 s_1 LT \cdot OR}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Infer2{E_1 >= E_2 \hookrightarrow s_1 s_2 EQ \cdot s_2 s_1 GT \cdot OR}
+\end{prooftree}\\\\\\
+\code{<=} and \code{>=} operators are simply replicated by replacing them with conjunctions of \code{<} or \code{>} with \code{===}. \\\\
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Infer1{!E_1 \hookrightarrow s_1 ISZERO}
+\end{prooftree}\\\\\\
+While there is a \code{NOT} instruction in EVM, it is a bitwise \code{not} that inverts all 256 bytes of the input when EVM uses 0 and 1 for false and true respectively, hence to translate \code{!}, we check if the given operand is 0 using the \code{ISZERO} instruction. If a value is 0, it is originally treated as false in EVM, and \code{ISZERO} will return 1, which is true. If a value is any other non-zero value, \code{ISZERO} will return the false value of 0 instead. In either case, \code{ISZERO} returns a boolean value that is the logical negation of the given operand. \\\\\\
+\begin{prooftree}
+    \Hypo{E_1\hookrightarrow s_1}
+    \Hypo{E_2\hookrightarrow s_2}
+    \Hypo{E_3\hookrightarrow s_3}
+    \Hypo{compile\_conditional(E_1, E_2, E_3)}
+\Infer4{E_1 ? E_2 : E_3 \hookrightarrow s_1 \cdot JDEST1\_PC \cdot JUMPI \cdot s_2 \cdot JDEST2\_PC \cdot JUMP \cdot JDEST1 \cdot s_3 \cdot JDEST2 }
+\end{prooftree}\\\\\\
+Where \code{JUMPI} takes the the top operand on stack as the destination to change PC to, and jump if the second operand on stack is true. \code{JDEST} is short for \code{JUMPDEST}, the instruction that adds a label for jump destinations. Each \code{JDEST} in the above proof tree is labelled with a number behind for clarity. \code{JDESTi\_PC} refers to the PC location of the corresponding \code{JUMPDEST} to be used as destination for \code{JUMP} and \code{JUMPI} instructions. They are calculated at runtime by first putting current PC on stack with the \code{PC} instruction, then adding the PC distance from that point to the destination, which is calculated during compilation. 
+
+\subsection{Conditionals}
+The ternary conditional operator is documented above. Conditional expressions in the form 
+\begin{verbatim}
+    if(cond} {
+        // if true
+    } else {
+        // if false
+    }
+\end{verbatim}
+are first converted to the ternary operator form, then their condition expression, truth expression, and false expression are extracted to be passed to the \code{compile\_conditional} function to be compiled in the same way as the ternary operator version. \\\\
+\begin{prooftree}
+    \Hypo{if(E_1)\{E_1\}else\{E_3\}}
+    \Infer1{E_1 ? E_2 : E_3}
+\end{prooftree}\\\\
+For if-else form of conditionals, the expressions within curly braces do not have their own independent scope. 
+
+\subsection{Loops}
+WIP
+
+\subsubsection{Memory model}
+EVM does not have registers or a conventional runtime stack, hence we have decided to use the memory to simulate both a runtime stack and shared registers. \\\\
+We have allocated the memory from 0x40 to 0x200 for stack frame pointers, and addresses from 0x220 onward are used for the call stack. Each stack frame on the call stack will contain values for all names that environment, which may either be a function or the main scope, contains within its lexical scope. As all names are allocated an address at the point of initialisation of that environment, which, for this compiler, would be at the during initialisation of functions. \\\\
+To keep track of the current active stack frame, addresses 0x00 and 0x20 are used as registers. 0x00 always contains the address of the current stack frame pointer, i.e. the stack frame pointers stored from 0x20 to 0x200. 0x20 will always store the actual address of the current stack frame, i.e. the value held at the address 0x00 points to. \\\\
+The stack frame pointers each point to the start of its corresponding stack frame. As the stack grows downwards, more stack frame pointer entries are placed onto the stack frame pointer stack, growing it with the call stack. For both the call stack and the stack frame pointer stack, the next available address is the one that immediately follows the current active stack frame. For the stack frame pointers, the next pointer will be pushed to the address of the current stack frame pointer plus 0x20. For the stack frame itself, the next available address will be the start of the current stack frame offset by the number of variables it contains times 0x20. \\\\
+When a function returns and the stack frame is no longer needed, the exiting stack frame will be "popped" by pointing the active stack frame pointer to the previous stack frame, "moving up" in both the stack frame pointer stack and the call stack. When another function is called, it's stack frame will start from the address previously used by the exited function, overwriting the previous memory. Garbage collection is thus not needed as memory is implicitly reclaimed upon function exit. \\\\
+During compilation, the compiler keeps a lookup table of the names known to each environment, and each name is given an offset amount, starting from 0x20, and increasing by 0x20 with every name. These names are the variables that the program can access in that environment. To access a variable, EVM takes the value at 0x20, then adds the offset for that variable name, which was determined at compile time, to obtain the actual address that variable resides at, where it can then invoke \code{MLOAD} or \code{MSTORE} to read from or write to that variable. \\
+
+\subsection{Functions}
+Functions exist in two forms, the code compiled from their body, and the PC offset serving as entry points to jump to. Within the final compiled bytecode, the bytecodes for all functions, named or anonymous, are placed at the start. The PC offsets for each function is thus known at compile. During runtime, the named functions are treated in the same way as other constant variables, only that the value stored in memory for a function is its PC offset. This allows functions to be passed as parameters and returned as return values just like any other data. 
+\subsubsection{Function definition}
+Functions can be defined in two ways, either through a function declaration: 
+\begin{verbatim}
+    function f(arg) {
+        // function body
+    }
+\end{verbatim}
+or through a constant declaration of a lambda expression: 
+\begin{verbatim}
+    const f = arg => {
+        // function body
+    }
+    // or: 
+    const f = arg => return statement
+\end{verbatim}
+The function declaration form will be transformed to the constant declaration form. The constant declaration will be passed to the \code{compile\_constant} function, which will extract the constant name, in this case the function name, and pass the lambda expression to the \code{compile\_lambda\_expression} function for code generation. The compiled bytecode for all functions will be placed near the start of the final compiled program. \code{compile\_constant} will, in the case of functions, return the bytecode for pushing the PC offset, which is known at compile time since it is just the number of bytes from the start of the compiled program, for the \code{JUMPDEST} of the function entry. During runtime, this PC offset will be stored into the address allocated in the stack frame for that function name. When that name is accessed like any other names, the PC offset will be retrieved, which EVM will call \code{JUMP} on to enter the function. \\\\
+\code{compile\_lambda\_expression} will construct the compiled code in three parts: 
+\begin{itemize}
+    \item \textit{Read and store arguments}: This is the first part of the function code that is ran when the function code is accessed. Since the function code is only accessed during application, it is assumed that before the jump, the application in caller has already placed all required arguments for the function call on the operand stack. For every argument the function has, \code{compile\_lambda\_expression} will generate bytecode that takes the top element on operand stack, and stores it in memory, based on the stack frame offset for the argument name, determined at this stage based on its order of appearance in the given code, and the stack frame address, determined at runtime. \code{compile\_lambda\_expression} will also record names and assign offsets for all locally declared names in the compiler lookup table. 
+    \begin{itemize}
+        \item Note that compiler will scan for all free variables in the function and in all its nested functions, and these variable names will be added appended to the list of arguments. The original arguments will be read and stored first, followed by the free variables. 
+        \item Original arguments are assigned offsets first, followed by free variables, then locally bound variables. 
+        \item During application, input arguments are pushed to stack in the order that they are given, hence the last argument will be the first value on stack, so arguments are read from stack in reverse order. 
+    \end{itemize}
+    \item \textit{Function body}: This is the main body of the function. The body of the function is extracted and passed to \code{compile\_expression} with the updated lookup. The returned result will be the bytecode containing the main logic of the function. 
+    \item \textit{Stack frame and PC updates} Every function application creates a new stack frame during runtime, and moves back to the caller's stack frame upon function exit, hence code for updating runtime stack at both the start and end of the compile function bytecode is needed. After the function is fully executed, PC also needs to be restored to after the \code{JUMP} invoked by function application. 
+        \begin{itemize}
+            \item Return PC is pushed on stack before arguments are pushed during function call. We expect functions to always have a single return value that is the result of the final statement executed in the function or a return statement. When the function is ready to return, the top two elements on operand stack should be \textit{return value} and \textit{return PC}. \code{SWAP1} and \code{JUMP} are then called in that sequence to jump to return PC and leave return value on top of the stack.
+            \begin{itemize}
+                \item This approach is the reason for statements with unused return values to result in unexpected behaviours that would most like cause jump errors in EVM, as the presence of additional values on operand stack causes return \code{JUMP} to not jump to the correct PC. 
+            \end{itemize}
+        \end{itemize}
+\end{itemize}
+The code generated for a function thus follows the following structure: 
+\begin{center}
+\begin{tabular}{ |c| } 
+ \hline
+ Jump Destination \\
+ \hline
+ Create new stack frame and update pointers to runtime stack \\
+ \hline
+ Get and store arguments from operand stack \\
+ \hline
+ Function body \\
+ \hline
+ Return to previous stack frame \\
+ \hline
+ \code{SWAP1} and \code{JUMP} to jump back to caller \\
+ \hline
+\end{tabular}
+\end{center}
+
+\subsubsection{Function application}
+When a function is applied, e.g. \code{f(1, 2, 3)}, the return PC is first calculated by calling the instruction \code{PC}, then adding the distance from there to 1 byte after the \code{JUMP} instruction used to enter the function. This puts return PC on stack, allowing PC to be set to the instruction that immediately follows the function application. \\\\
+This section will only cover application of named functions, application of anonymous functions will be covered later. \\\\
+When there is a function application, the compiler generates code for the application in the following steps: 
+\begin{itemize}
+    \item \textit{Prepare captured variables}: compiler will retrieve list of captured variables from the lookup, then searches for them within the current scope, and generate code that load them from memory, pushing them onto stack. 
+    \item \textit{Prepare arguments}: the actual list of arguments will now be compiled, which will result in their values being pushed on top of the operand stack at the end. 
+    \item \textit{Get PC offset of function to be called}: compiler generates code that will retrieve, from memory, the PC offset of the function to be called. Such offsets are stored in memory like any other variables. 
+    \item \textit{Prepare jump and return PC}: compiler will then append \code{JUMP}, code for returning stack frame, and \code{JUMPDEST} for the actual entry to function and eventual return. With the length of the code known now, the return PC can be calculated with \code{Current PC + length(code) + 1}. The return PC will be pushed on to stack first to put it below function arguments. 
+\end{itemize}
+\begin{table}[!h]
+\begin{center}
+\begin{tabular}{ |c| } 
+ \hline
+ Function PC \\
+ \hline
+ Function arguments \\
+ \vdots \\
+ \hline
+ Function captures \\
+ \vdots \\
+ \hline
+ Return PC \\
+ \hline
+\end{tabular}
+\caption*{Stack at the point of \code{JUMP}}
+\end{center}
+\end{table}
+
+\subsubsection{Lifting of captured variables}
+Instead of extending the current closure to capture variables from outer scopes, this compiler extends the list of arguments instead. The function \code{scan\_out\_names} scans out all names in a given parse tree that are \textit{not} locally declared or, in the case of functions, one of the function arguments. This scanning is done at the start of a sequence of expressions before any functions are actually compiled. The resultant list of list of captured variables for each function is stored in the lookup table under \code{funcs}, with each list mapped to the name of the function it came from. This list is referred to when compiling both lambda expressions and applications. 
+
+\subsubsection{Tail call optimisation}
+
+\subsubsection{Anonymous Functions}

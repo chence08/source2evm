@@ -266,7 +266,7 @@ function scan_out_names(component) {
               is_block(function_declaration_body(component)) 
                 ? block_body(function_declaration_body(component)) 
                 : function_declaration_body(component))),
-        function_declaration_parameters(component))
+        map(symbol_of_name, function_declaration_parameters(component)))
   : is_lambda_expression(component)
   ? filter_list(filter_list(scan_out_names(lambda_body(component)), scan_out_declarations(component)), lambda_parameter_symbols(component))
   : is_pair(component)
@@ -715,12 +715,12 @@ function compile_application(expr, closure_lookup) {
     
     return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   } else if (is_application(function_expr)) {
-    throw new Error("Functions as return result is not supported. ");
+    // throw new Error("Functions as return result is not supported. ");
     
-    // const application_code = compile_application(function_expr, closure_lookup);
+    const application_code = compile_application(function_expr, closure_lookup);
 
-    // const load_args_and_jump = arg_code + application_code;
-    // return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
+    const load_args_and_jump = arg_code + application_code + opCodes.JUMP + closure_lookup.go_up_stack() + opCodes.JUMPDEST;
+    return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   } else {
 
     const name = symbol_of_name(function_expression(expr));
