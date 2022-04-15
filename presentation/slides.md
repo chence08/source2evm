@@ -66,3 +66,19 @@ slide-transition: true
 ------
 
 # Highlights
+
+- Functions
+  - Named, anonymous
+  - Nested
+  - Recursion, tail call optimisation
+  - Functions as parameters and return values
+
+------
+
+# Variable capture
+
+- Create minimal closure by scanning free variables
+- Convert free variables to arguments
+- Capture variables by passing them as arguments
+- All passed by value, no side effects
+
