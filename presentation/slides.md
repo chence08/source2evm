@@ -61,6 +61,43 @@ slide-transition: true
 
 ------
 
+![left,fit](Page1.png)
+
+![right,fit](Page2.png)
+
+------
+
+# Example
+
+![right,fit](Page3.png)
+
+```javascript
+let x = 10;
+function f(a) {
+    return x + a;
+}
+f(1);
+```
+
+------
+
+# Example
+
+![right,fit](Page4.png)
+
+```javascript
+let x = 10;
+function f(a) {
+    return x + a;
+}
+f(1);
+
+// f(a) -> f(a, x)
+// must be a variable named `x`!
+```
+
+------
+
 # Demo
 
 ------
