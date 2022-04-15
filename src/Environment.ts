@@ -9,6 +9,7 @@ export default class Environment {
   public constants: string[] = [];
   public funcs: Record<string, string[]>;
   public next_name: string;
+  public captured_var: string[] = [];
   
   constructor(upper_scope?: Environment, pc_offset?: number) {
     if (upper_scope) {
@@ -110,11 +111,13 @@ export default class Environment {
     }
   }
 
-  count_layers(): number {
-    if (this.upper_scope === null) {
-      return 1;
+  check_if_constant(name: string): boolean {
+    if (this.constants.includes(name)) {
+      return true;
+    } else if (this.upper_scope !== null) {
+      return this.upper_scope.check_if_constant(name);
     } else {
-      return 1 + this.upper_scope.count_layers();
+      return false;
     }
   }
 

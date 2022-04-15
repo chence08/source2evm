@@ -648,7 +648,7 @@ function compile_lambda_expression(expr, closure_lookup) {
 
   extended_env.funcs[current_name] = captured;
 
-  const all_names = [...parameters.reverse(), ...captured];
+  const all_names = [...captured, ...parameters.reverse()];
 
   let load_params = "";
 
@@ -658,6 +658,12 @@ function compile_lambda_expression(expr, closure_lookup) {
     for (const x of all_names) {
       load_params = load_params + load_lambda_param(current_offset)
       extended_env.insert(x);
+      if (captured.includes(x)) {
+        extended_env.captured_var.push(x);
+        if (extended_env.check_if_constant(x)) {
+          extended_env.constants.push(x);
+        }
+      }
       current_offset += 32;
     }
   }
@@ -705,13 +711,13 @@ function compile_application(expr, closure_lookup) {
     const body_block = lambda_body(function_expr);
     const body = is_block(body_block) ? block_body(body_block) : body_block;
     const captures = list_to_arr(filter_list(filter_list(scan_out_names(body), scan_out_declarations(body)), lambda_parameter_symbols(function_expr)));
-    const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
+    const capture_code = captures.map(x => closure_lookup.get_name_offset(x)).reduce((x, y) => y + x, "");
 
     const this_offset = CONST_OFFSET;
 
     CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
 
-    const load_args_and_jump = capture_code + arg_code + PUSH4(this_offset) + opCodes.JUMP + opCodes.JUMPDEST;
+    const load_args_and_jump = arg_code + capture_code + PUSH4(this_offset) + opCodes.JUMP + opCodes.JUMPDEST;
     
     return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   } else if (is_application(function_expr)) {
@@ -732,7 +738,7 @@ function compile_application(expr, closure_lookup) {
     const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
 
 
-    const load_args_and_jump = capture_code + arg_code + function_offset_code + opCodes.MLOAD + opCodes.JUMP + closure_lookup.go_up_stack() + opCodes.JUMPDEST;
+    const load_args_and_jump = arg_code + capture_code + function_offset_code + opCodes.MLOAD + opCodes.JUMP + closure_lookup.go_up_stack() + opCodes.JUMPDEST;
 
     return opCodes.PC + PUSH4((load_args_and_jump.length / 2) + 6) + opCodes.ADD + load_args_and_jump;
   }
@@ -755,7 +761,7 @@ function compile_tail_call_application(expr, closure_lookup) {
 
   // const change_to_function_env = closure_lookup.update_stack(name);
 
-  const load_args_and_jump = capture_code + arg_code + function_offset_code + opCodes.MLOAD + move_up_stack + opCodes.JUMP + opCodes.JUMPDEST;
+  const load_args_and_jump = arg_code + capture_code + function_offset_code + opCodes.MLOAD + move_up_stack + opCodes.JUMP + opCodes.JUMPDEST;
 
   const call_function = load_args_and_jump;
 
@@ -771,11 +777,14 @@ function compile_assignment(expr, closure_lookup, is_reassignment) {
     throw console.error("Reassigning constant: " + symbol);
   }
 
+  if (closure_lookup.captured_var.includes(symbol)) {
+    throw new Error("Reassigning captured variable: " + symbol);
+  }
+
   const value = compile_expression(constant_declaration_value(expr), closure_lookup);
   // frame_offset is the offset of the current env frame
   // console.log(closure_lookup);
   // console.log("VALUE: " + value);
-  
   return value + closure_lookup.get_name_offset(symbol) + opCodes.MSTORE;
 }
 
@@ -821,9 +830,16 @@ function compile_expression(expr, closure_lookup): string {
     return compile_application(expr, closure_lookup);
   } else if (is_return_statement(expr)) {
     const return_expr = return_statement_expression(expr);
+
     if (is_application(return_expr)) {
       // tail call optimisation
       return compile_tail_call_application(return_expr, closure_lookup);
+    } else if(is_name(return_expr) && closure_lookup.funcs.hasOwnProperty(symbol_of_name(return_expr))) {
+      let return_code = "";
+      for (const x of closure_lookup.funcs[symbol_of_name(return_expr)]) {
+        return_code = return_code + closure_lookup.get_name_offset(x) + opCodes.MLOAD + opCodes.SWAP1;
+      }
+      return return_code + compile_expression(return_expr, closure_lookup) + closure_lookup.go_up_stack() + opCodes.SWAP1 + opCodes.JUMP;
     } else {
       return compile_expression(return_expr, closure_lookup) + closure_lookup.go_up_stack() + opCodes.SWAP1 + opCodes.JUMP;
     }
