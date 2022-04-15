@@ -1,0 +1,8 @@
+let i = 0;
+let x = 0;
+while (i < 1000) {
+  i = i + 1;
+  x = x + i;
+}
+
+x;
