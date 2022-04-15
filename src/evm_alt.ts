@@ -383,7 +383,7 @@ function compile_sequence(expr, closure_lookup) {
 
   while (!is_null(function_names)) {
     const name = head(function_names);
-    closure_lookup.funcs[name] = [list_to_arr(head(function_captures))];
+    closure_lookup.funcs[name] = list_to_arr(head(function_captures));
     closure_lookup.funcs[name].push(name);
     closure_lookup.funcs[name] = [...new Set(closure_lookup.funcs[name])];
     function_names = tail(function_names);
@@ -644,10 +644,16 @@ function compile_lambda_expression(expr, closure_lookup) {
 
   // list of params
   const parameters = list_to_arr(lambda_parameter_symbols(expr));
-  const captured = closure_lookup.funcs[closure_lookup.next_name];
-  // const captured = [...new Set(list_to_arr(scan_out_names(body)))]
-  //         .filter(x => 
-  //           !((parameters !== null && parameters.includes(x))));
+  let captured = [];
+
+  if (closure_lookup.next_name === null || !closure_lookup.funcs.hasOwnProperty(closure_lookup.next_name)) {
+    captured = [...new Set(list_to_arr(scan_out_names(body)))]
+          .filter(x => 
+            !((parameters !== null && parameters.includes(x)) || (locals !== null && locals.includes(x))));
+  } else {
+    captured = closure_lookup.funcs[closure_lookup.next_name];
+  }
+    
   extended_env.funcs[current_name] = captured;
 
   const all_names = [...captured, ...parameters.reverse()];

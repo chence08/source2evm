@@ -70,7 +70,7 @@ slide-transition: true
 - Functions
   - Named, anonymous
   - Nested
-  - Recursion, tail call optimisation
+  - Recursion, mutual recursion, tail call optimisation
   - Functions as parameters and return values
 
 ------
@@ -81,4 +81,6 @@ slide-transition: true
 - Convert free variables to arguments
 - Capture variables by passing them as arguments
 - All passed by value, no side effects
+- Name of current function passed as additional variable
+  - To support mutual recursion
 
