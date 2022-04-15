@@ -1,4 +1,7 @@
 function pair(a, b) {
     return value => (value === 0 ? a : b);
 }
-pair(1, 2)(0);
+function head(p) {
+  return p(0);
+}
+head(pair(1, 2));

@@ -660,9 +660,6 @@ function compile_lambda_expression(expr, closure_lookup) {
       extended_env.insert(x);
       if (captured.includes(x)) {
         extended_env.captured_var.push(x);
-        if (extended_env.check_if_constant(x)) {
-          extended_env.constants.push(x);
-        }
       }
       current_offset += 32;
     }
@@ -733,7 +730,7 @@ function compile_application(expr, closure_lookup) {
 
     const function_offset_code = closure_lookup.get_name_offset(name);
   
-    const captures = closure_lookup.funcs[name];
+    const captures = closure_lookup.funcs.hasOwnProperty(name) ? closure_lookup.funcs[name] : [];
 
     const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
 
@@ -755,7 +752,7 @@ function compile_tail_call_application(expr, closure_lookup) {
 
   const move_up_stack = closure_lookup.go_up_stack();
 
-  const captures = closure_lookup.funcs[name];
+  const captures = closure_lookup.funcs.hasOwnProperty(name) ? closure_lookup.funcs[name] : [];
 
   const capture_code = captures.map(x => closure_lookup.get_name_offset(x) + opCodes.MLOAD).reduce((x, y) => y + x, "");
 
@@ -788,6 +785,88 @@ function compile_assignment(expr, closure_lookup, is_reassignment) {
   return value + closure_lookup.get_name_offset(symbol) + opCodes.MSTORE;
 }
 
+function compile_return(expr, closure_lookup) {
+  const return_expr = return_statement_expression(expr);
+
+  if (is_application(return_expr)) {
+    // tail call optimisation
+    return compile_tail_call_application(return_expr, closure_lookup);
+  } else if(is_lambda_expression(return_expr)) {
+    let return_code = "";
+
+    const lambda_code = compile_lambda_expression(return_expr, closure_lookup).code_val;
+    constants = constants + opCodes.JUMPDEST + lambda_code + opCodes.SWAP1 + opCodes.JUMP;
+    
+    const body_block = lambda_body(return_expr);
+    const body = is_block(body_block) ? block_body(body_block) : body_block;
+    const captures = list_to_arr(filter_list(filter_list(scan_out_names(body), scan_out_declarations(body)), lambda_parameter_symbols(return_expr)));
+
+    const this_offset = CONST_OFFSET;
+
+    CONST_OFFSET = INIT_CODE_LENGTH + constants.length / 2;
+
+    for (const x of captures.reverse()) {
+      return_code = return_code + closure_lookup.get_name_offset(x) + opCodes.MLOAD + opCodes.SWAP1;
+    }
+    return return_code + PUSH4(this_offset) + closure_lookup.go_up_stack() + opCodes.SWAP1 + opCodes.JUMP;
+
+  } else if(is_name(return_expr) && closure_lookup.funcs.hasOwnProperty(symbol_of_name(return_expr))) {
+    let return_code = "";
+    for (const x of closure_lookup.funcs[symbol_of_name(return_expr)]) {
+      return_code = return_code + closure_lookup.get_name_offset(x) + opCodes.MLOAD + opCodes.SWAP1;
+    }
+    return return_code + compile_expression(return_expr, closure_lookup) + closure_lookup.go_up_stack() + opCodes.SWAP1 + opCodes.JUMP;
+  } else {
+    return compile_expression(return_expr, closure_lookup) + closure_lookup.go_up_stack() + opCodes.SWAP1 + opCodes.JUMP;
+  }
+}
+
+function compile_primitive_operation(expr, closure_lookup) {
+  const op = operator(expr);
+  // console.log(expr);
+  const operand_1 = first_operand(expr);
+  if (op === "!") {
+    return compile_expression(operand_1, closure_lookup)
+        + opCodes.ISZERO;
+  } else {
+    const operand_2 = second_operand(expr);
+    if (is_conditional_combination(expr) && is_boolean_literal(op)) {
+        return literal_value(op) ? compile_expression(operand_1, closure_lookup) : compile_expression(operand_2, closure_lookup);
+    } else if (is_conditional_combination(expr)) {
+        return compile_conditional(expr, closure_lookup);
+    } else {
+      if (op === "<=" || op === ">=") {
+        const op_code = op === ">=" ? opCodes.GT : opCodes.LT;
+        return compile_expression(operand_1, closure_lookup) + opCodes.DUP1 
+          + compile_expression(operand_2, closure_lookup) + opCodes.DUP1 
+          + opCodes.SWAP2 + op_code + opCodes.SWAP2 + opCodes.EQ + opCodes.OR;
+      }
+      const op_code = op === "+" ? opCodes.ADD
+                    : op === "-" ? opCodes.SUB
+                    : op === "*" ? opCodes.MUL
+                    : op === "/" ? opCodes.DIV
+                    : op === "===" ? opCodes.EQ
+                    : op === "<" ? opCodes.LT
+                    : op === ">" ? opCodes.GT
+                    : op === "&&" ? opCodes.AND
+                    : op === "||" ? opCodes.OR
+                    : null;
+      if (op_code === null) {
+        throw new Error("Unknown operator: " + op);
+      }
+      if (op_code === opCodes.DIV || op_code === opCodes.LT || op_code === opCodes.GT || op_code === opCodes.SUB) {
+          return compile_expression(operand_2, closure_lookup)
+                  + compile_expression(operand_1, closure_lookup)
+                  + op_code;
+
+      }
+      return compile_expression(operand_1, closure_lookup)
+            + compile_expression(operand_2, closure_lookup)
+            + op_code;
+    }
+  }
+}
+
 function compile_expression(expr, closure_lookup): string {
   if (is_number_literal(expr)) {
     return PUSH32(literal_value(expr));
@@ -805,20 +884,7 @@ function compile_expression(expr, closure_lookup): string {
   } else if (is_name(expr)) {
     const name = symbol_of_name(expr);
     const load_from_heap = closure_lookup.get_name_offset(name) + opCodes.MLOAD;
-      // PUSH32(closure_lookup.search(name) * 32) + opCodes.ADD + opCodes.MLOAD; 
-    // const offset = closure_lookup.search(name)
-    // console.log(closure_lookup.search(name)); 
-    // console.log(closure_lookup.frame_offset);
-    
-    return load_from_heap;
-
-    // if (closure_lookup.constants.includes(name)) {
-    //   const load_and_jump = load_from_heap + opCodes.JUMP + opCodes.JUMPDEST;
-    //   return opCodes.PC + PUSH((load_and_jump.length / 2) + 3) + opCodes.ADD + load_and_jump;
-    // } else {
-    //   return load_from_heap;
-    // }
-    
+    return load_from_heap;    
   } else if (is_sequence(expr)) {
     return compile_sequence(expr, closure_lookup);
   } else if (is_function_declaration(expr)) {
@@ -829,87 +895,11 @@ function compile_expression(expr, closure_lookup): string {
   } else if (is_application(expr)) {
     return compile_application(expr, closure_lookup);
   } else if (is_return_statement(expr)) {
-    const return_expr = return_statement_expression(expr);
-
-    if (is_application(return_expr)) {
-      // tail call optimisation
-      return compile_tail_call_application(return_expr, closure_lookup);
-    } else if(is_name(return_expr) && closure_lookup.funcs.hasOwnProperty(symbol_of_name(return_expr))) {
-      let return_code = "";
-      for (const x of closure_lookup.funcs[symbol_of_name(return_expr)]) {
-        return_code = return_code + closure_lookup.get_name_offset(x) + opCodes.MLOAD + opCodes.SWAP1;
-      }
-      return return_code + compile_expression(return_expr, closure_lookup) + closure_lookup.go_up_stack() + opCodes.SWAP1 + opCodes.JUMP;
-    } else {
-      return compile_expression(return_expr, closure_lookup) + closure_lookup.go_up_stack() + opCodes.SWAP1 + opCodes.JUMP;
-    }
+    return compile_return(expr, closure_lookup);
   } else if (is_conditional_statement(expr)) {
     return compile_expression(conditional_statement_to_expression(expr), closure_lookup);
   } else {
-      const op = operator(expr);
-      // console.log(expr);
-      const operand_1 = first_operand(expr);
-      if (op === "!") {
-          return compile_expression(operand_1, closure_lookup)
-            + opCodes.ISZERO;
-      } else {
-          const operand_2 = second_operand(expr);
-          if (is_conditional_combination(expr) && is_boolean_literal(op)) {
-              return literal_value(op) ? compile_expression(operand_1, closure_lookup) : compile_expression(operand_2, closure_lookup);
-          } else if (is_conditional_combination(expr)) {
-              return compile_conditional(expr, closure_lookup);
-              // return append(compile_expression(op),
-              //             append(compile_expression(operand_1),
-              //                 append(compile_expression(operand_2),
-              //                     list(make_simple_instruction("COND_2")))));
-          } else {
-            if (op === "<=" || op === ">=") {
-              const op_code = op === ">=" ? opCodes.GT : opCodes.LT;
-              // op2
-              // op2
-              // op1
-              // op1
-
-              // op1
-              // op2
-              // op2
-              // op1
-
-              // res
-              // op2
-              // op1
-
-              // op1
-              // op2
-              // res
-              return compile_expression(operand_1, closure_lookup) + opCodes.DUP1 
-                + compile_expression(operand_2, closure_lookup) + opCodes.DUP1 
-                + opCodes.SWAP2 + op_code + opCodes.SWAP2 + opCodes.EQ + opCodes.OR;
-            }
-            const op_code = op === "+" ? opCodes.ADD
-                          : op === "-" ? opCodes.SUB
-                          : op === "*" ? opCodes.MUL
-                          : op === "/" ? opCodes.DIV
-                          : op === "===" ? opCodes.EQ
-                          : op === "<" ? opCodes.LT
-                          : op === ">" ? opCodes.GT
-                          : op === "&&" ? opCodes.AND
-                          : op === "||" ? opCodes.OR
-                          : null;
-            if (op_code === null) {
-              throw new Error("Unknown operator: " + op);
-            }
-            if (op_code === opCodes.DIV || op_code === opCodes.LT || op_code === opCodes.GT || op_code === opCodes.SUB) {
-                return compile_expression(operand_2, closure_lookup)
-                        + compile_expression(operand_1, closure_lookup)
-                        + op_code;
-
-            }
-            return compile_expression(operand_1, closure_lookup)
-                  + compile_expression(operand_2, closure_lookup)
-                  + op_code;
-          }
-      }
+    return compile_primitive_operation(expr, closure_lookup);
   }
 }
 

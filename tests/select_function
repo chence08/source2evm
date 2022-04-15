@@ -1,8 +1,5 @@
 function pair(a, b) {
-  function f(x) {
-    return x === 0 ? a : b;
-  }
-  return f;
+  return x => x === 0 ? a : b;
 }
 
 pair(10, 20)(1);
