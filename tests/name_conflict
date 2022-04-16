@@ -1,0 +1,14 @@
+const x = 1;
+const y = 2;
+function f() {
+  function g() {
+    return x;
+  }
+  return g();
+}
+
+function g() {
+  return y;
+}
+
+f();
