@@ -1,3 +1,4 @@
+#! /usr/local/bin/node
 const fs = require('fs')
 const process = require('process');
 const { exit } = require("process");
