@@ -15,7 +15,7 @@ const arch_type = require('os').arch();
 let evm = "";
 
 if (arch_type === 'x64') {
-  evm = "bin/evm";
+  evm = "bin/evm_arm";
 } else if (arch_type === 'arm') {
   evm = "bin/evm_arm"
 } else{
@@ -38,7 +38,6 @@ const HELP_MSG = USAGE + `
 Options: \n
 -o      Path to write compiled EVM bytecode to \n
 -r      Execute the compiled bytecode on EVM \n
--d      Execute the compiled bytecode in debug mode, showing the stack \n
 -h      Show this message \n
 `;
 let i = 0;
@@ -56,10 +55,6 @@ while (i < args.length) {
     case '-r': 
       execute = true;
       i = i + 1;
-      break;
-    case '-d': 
-      execute = true;
-      debug = true;
       break;
     case '-h': 
       console.log(HELP_MSG);
