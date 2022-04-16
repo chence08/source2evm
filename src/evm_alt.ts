@@ -451,14 +451,26 @@ function compile_conditional(expr, closure_lookup) {
 }
 
 function compile_for_loop(expr, closure_lookup) {
-  const init_expression = init(expr);
-  const new_declarations = head(scan_out_declarations(init_expression));
-  closure_lookup.insert(new_declarations);
+  let new_env = new Environment(closure_lookup);
+  for (const x of Object.keys(closure_lookup.locals)) {
+    new_env.insert(x);
+  }
+  new_env.constants = closure_lookup.constants;
 
-  const _init = compile_expression(init(expr), closure_lookup);
-  const _test = compile_expression(test(expr), closure_lookup);
-  const _update = compile_expression(update(expr), closure_lookup);
-  const body = compile_expression(for_loop_body(expr), closure_lookup);
+  const init_expression = init(expr);
+  const new_declarations = head(scan_out_declarations(init_expression)); // only one is allowed
+  new_env.insert(new_declarations);
+
+  const locals = list_to_arr(scan_out_declarations(for_loop_body(expr)));
+  for (const x of locals) {
+    // assign space for locals
+    new_env.insert(x);
+  }
+
+  const _init = compile_expression(init(expr), new_env);
+  const _test = compile_expression(test(expr), new_env);
+  const _update = compile_expression(update(expr), new_env);
+  const body = compile_expression(for_loop_body(expr), new_env);
 
   const true_offset = PUSH4(0)
                       + opCodes.ADD + opCodes.JUMPI
@@ -486,8 +498,29 @@ function compile_for_loop(expr, closure_lookup) {
 }
 
 function compile_while_loop(expr, closure_lookup) {
-  const body = compile_expression(loop_body(expr), closure_lookup);
-  const cond = compile_expression(loop_condition(expr), closure_lookup);
+  let new_env = new Environment(closure_lookup);
+
+  for (const x of Object.keys(closure_lookup.locals)) {
+    new_env.insert(x);
+  }
+
+  new_env.constants = closure_lookup.constants;
+
+  const locals = list_to_arr(scan_out_declarations(loop_body(expr))); 
+  const cond_locals = list_to_arr(scan_out_declarations(loop_condition(expr))); 
+
+  for (const x of locals) {
+    // assign space for locals
+    new_env.insert(x);
+  }
+
+  for (const x of cond_locals) {
+    new_env.insert(x);
+  }
+
+  
+  const body = compile_expression(loop_body(expr), new_env);
+  const cond = compile_expression(loop_condition(expr), new_env);
 
   // console.log(body)
   // console.log(cond)
@@ -907,6 +940,8 @@ function compile_expression(expr, closure_lookup): string {
     return compile_return(expr, closure_lookup);
   } else if (is_conditional_statement(expr)) {
     return compile_expression(conditional_statement_to_expression(expr), closure_lookup);
+  } else if (is_block(expr)) {
+    return compile_expression(block_body(expr), closure_lookup);
   } else {
     return compile_primitive_operation(expr, closure_lookup);
   }

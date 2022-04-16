@@ -1,6 +1,7 @@
 let x = 0;
 for (let i = 0; i <= 1000; i = i + 1) {
   x = x + i;
+  let y = 6;
 }
 
-x;
+y;

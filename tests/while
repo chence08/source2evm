@@ -3,6 +3,7 @@ let x = 0;
 while (i < 1000) {
   i = i + 1;
   x = x + i;
+  let y = 5;
 }
 
 x;

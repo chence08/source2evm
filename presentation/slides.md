@@ -24,6 +24,7 @@ slide-transition: true
 
 # quasi-Turing complete
 
+- Can compute any algorithm that can be computed by any Turing machine, given the limitations of finite memory
 - Upper bound of execution processes by available **gas**.
 - **gas** == 💰
 - All program executions will halt.
@@ -49,7 +50,7 @@ slide-transition: true
 
 ------
 
-# Instruction Set (Bytecodes)
+# Instruction Set (OpCodes)
 
 1. Arithmetic and bitwise logic operations
 2. Stack, memory and storage access.
@@ -57,7 +58,7 @@ slide-transition: true
 
 ------
 
-[.footer: to view bytecode details, please visit [ethervm.io](ethervm.io)]
+[.footer: to view opcode details, please visit [ethervm.io](ethervm.io)]
 
 | Bytecode   | Stack Input            | Stack Output | Effect                                                 |
 | ---------- | ---------------------- | ------------ | ------------------------------------------------------ |
@@ -77,22 +78,25 @@ slide-transition: true
 
 ------
 
+Source Interpreter:
+
 ```javascript
 3+4;
 ```
+
+EVM Bytecode:
 
 ```
 6020600063000002006020630000020060405252526000\ INIT
 630000001D\ #LOCATION of Program Head
 565B\ #JUMP over `functions`
-<== functions
+\<========================================================= functions
 7F\ #PUSH32
 0000000000000000000000000000000000000000000000000000000000000003\ #uint256 3
 7F\ #PUSH32
-000000000000000000
-0000000000000000000000000000000000000000000004\ #uint256 4
+0000000000000000000000000000000000000000000000000000000000000004\ #uint256 4
 01\ #ADD
-60005260206000F3
+60005260206000F3\ #RETURN sequence
 ```
 
 ------
