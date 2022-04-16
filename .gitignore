@@ -6,7 +6,7 @@ package-lock.json
 output/
 yarn-error.log
 *.js
-!source2evm.js
+source2evm.js
 
 ### LaTeX ###
 *.acn
