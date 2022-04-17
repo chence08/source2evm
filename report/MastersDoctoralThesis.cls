@@ -269,7 +269,7 @@
 \providepairofpagestyles{thesisSimple}{%
 	\clearpairofpagestyles%
 	\automark[section]{section}
-	\ihead{\headmark}% Inner header
+% 	\ihead{\headmark}% Inner header
 	\ohead[\pagemark]{\pagemark}% Outer header
 }
 \ifoot{}% Inner footer
