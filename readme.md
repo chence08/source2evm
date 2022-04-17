@@ -13,7 +13,7 @@ The compiler currently supports the compilation of a subset of Source to bytecod
 To build:
 
 ```
-yarn add
+yarn install
 yarn tsc
 ```
 
@@ -22,8 +22,6 @@ Tested requirements:
 - node v14.17.2
 
 	> node v16 is not compatible as of last testing.
-
-- python3
 
 the evm binary provided is sourced from [Go Ethereum](https://geth.ethereum.org/).
 
