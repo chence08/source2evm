@@ -75,7 +75,8 @@ There is no static type checking in the compiler, but the compiler will check an
 - Reassigning values to constants
 
 ```javascript
-const x = 2;   x = 3; // reassigning const, compiler will throw exception here
+const x = 2;
+x = 3; // reassigning const, compiler will throw exception here
 ```
 
 - Referring to undeclared name
