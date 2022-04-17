@@ -123,7 +123,7 @@ Note that ALL arguments are passed-by-value to functions, hence variables are NO
     y;
 \end{verbatim}
 The above code will return 1, as \code{f} only changed the value of the copy of \code{y} within its own scope. 
-
+\newpage
 \subsection{Compiler Error Messages}
 There is no static type checking in the compiler, but the compiler will check and throw exceptions for the following: 
 \begin{itemize}
@@ -141,7 +141,7 @@ y + 4; // y not declared, compiler will throw exception here
 \end{verbatim}
 
 \end{itemize}
-Note that there will not be any line number information in the error messages. 
+Note that there will not be any line number information in the error messages.
 \pagebreak
 \section{Developer-level Documentation}
 \subsection{Operators}
@@ -255,7 +255,7 @@ While there is a \code{NOT} instruction in EVM, it is a bitwise \code{not} that 
     \Hypo{compile\_conditional(E_1, E_2, E_3)}
 \Infer4{E_1 ? E_2 : E_3 \hookrightarrow s_1 \cdot JDEST1\_PC \cdot JUMPI \cdot s_2 \cdot JDEST2\_PC \cdot JUMP \cdot JDEST1 \cdot s_3 \cdot JDEST2 }
 \end{prooftree}\\\\\\
-Where \code{JUMPI} takes the the top operand on stack as the destination to change PC to, and jump if the second operand on stack is true. \code{JDEST} is short for \code{JUMPDEST}, the instruction that adds a label for jump destinations. Each \code{JDEST} in the above proof tree is labelled with a number behind for clarity. \code{JDESTi\_PC} refers to the PC location of the corresponding \code{JUMPDEST} to be used as destination for \code{JUMP} and \code{JUMPI} instructions. They are calculated at runtime by first putting current PC on stack with the \code{PC} instruction, then adding the PC distance from that point to the destination, which is calculated during compilation. 
+Where \code{JUMPI} takes the the top operand on stack as the destination to change \textit{program counter (PC)} to, and jump if the second operand on stack is true. \code{JDEST} is short for \code{JUMPDEST}, the instruction that adds a label for jump destinations. Each \code{JDEST} in the above proof tree is labelled with a number behind for clarity. \code{JDESTi\_PC} refers to the PC location of the corresponding \code{JUMPDEST} to be used as destination for \code{JUMP} and \code{JUMPI} instructions. They are calculated at runtime by first putting current PC on stack with the \code{PC} instruction, then adding the PC distance from that point to the destination, which is calculated during compilation. 
 
 \subsection{Conditionals}
 The ternary conditional operator is documented above. Conditional expressions in the form 
@@ -283,41 +283,39 @@ When a function returns and the stack frame is no longer needed, the exiting sta
 During compilation, the compiler keeps a lookup table of the names known to each environment under \code{closure\_lookup.locals} in the compiler, and each name is given an offset amount, starting from 0x20, and increasing by 0x20 with every name. These names are the variables that the program can access in that environment. To access a variable, EVM takes the value at 0x20, then adds the offset for that variable name, which was determined at compile time, to obtain the actual address that variable resides at, where it can then invoke \code{MLOAD} or \code{MSTORE} to read from or write to that variable. \\
 
 \subsection{Loops}
+Loops carry their own closures. Two jump destinations are created during compilation, one before the condition and one at the very end of the loop, before the start of the rest of the program. \texttt{JUMPI} is invoked to send the PC to the loop body, otherwise if the condition is not truthy, the PC will skip outside the loop.
 \subsubsection{While Loops}
 \begin{verbatim}
 while (cond) {
-    body;
+    // body
 }
 \end{verbatim}
-\begin{prooftree}
-    \hypo{ggg}
-    \infer1[]{test};
-\end{prooftree}
 \subsubsection{For Loops}
 \begin{verbatim}
 for (let i = 0; i < 0; i = i+1) {
-    body;
+    // body
 }
 \end{verbatim}
-
+For loops have an additional three-part sequence that also exist within the loop's closure. A minor tweak would be to treat the \textbf{updating statement} as part of the loop body, the \textbf{test statement} as the loop condition, and be very careful to exclude the \textbf{initialisation statement} during the jump.
 \subsection{Functions}
 Functions exist in two forms, the code compiled from their body, and the PC offset serving as entry points to jump to. Within the final compiled bytecode, the bytecodes for all functions, named or anonymous, are placed at the start. The PC offsets for each function is thus known at compile. During runtime, the named functions are treated in the same way as other constant variables, only that the value stored in memory for a function is its PC offset. This allows functions to be passed as parameters and returned as return values just like any other data. 
 \subsubsection{Function definition}
 Functions can be defined in two ways, either through a function declaration: 
 \begin{verbatim}
-    function f(arg) {
-        // function body
-    }
+function f(arg) {
+    // function body
+}
 \end{verbatim}
 or through a constant declaration of a lambda expression: 
 \begin{verbatim}
-    const f = arg => {
-        // function body
-    }
-    // or: 
-    const f = arg => return statement
+const f = arg => {
+    // function body
+}
+// or: 
+const f = arg => return statement
 \end{verbatim}
-The function declaration form will be transformed to the constant declaration form. The constant declaration will be passed to the \code{compile\_constant} function, which will extract the constant name, in this case the function name, and pass the lambda expression to the \code{compile\_lambda\_expression} function for code generation. The compiled bytecode for all functions will be placed near the start of the final compiled program. \code{compile\_constant} will, in the case of functions, return the bytecode for pushing the PC offset, which is known at compile time since it is just the number of bytes from the start of the compiled program, for the \code{JUMPDEST} of the function entry. During runtime, this PC offset will be stored into the address allocated in the stack frame for that function name. When that name is accessed like any other names, the PC offset will be retrieved, which EVM will call \code{JUMP} on to enter the function. \\\\
+The function declaration form will be transformed to the constant declaration form. The constant declaration will be passed to the \code{compile\_constant} function, which will extract the constant name, in this case the function name, and pass the lambda expression to the \code{compile\_lambda\_expression} function for code generation. The compiled bytecode for all functions will be placed near the start of the final compiled program. \code{compile\_constant} will, in the case of functions, return the bytecode for pushing the PC offset, which is known at compile time since it is just the number of bytes from the start of the compiled program, for the \code{JUMPDEST} of the function entry. During runtime, this PC offset will be stored into the address allocated in the stack frame for that function name. When that name is accessed like any other names, the PC offset will be retrieved, which EVM will call \code{JUMP} on to enter the function.
+\newpage
 \code{compile\_lambda\_expression} will construct the compiled code in three parts: 
 \begin{itemize}
     \item \textit{Read and store arguments}: This is the first part of the function code that is ran when the function code is accessed. Since the function code is only accessed during application, it is assumed that before the jump, the application in caller has already placed all required arguments for the function call on the operand stack. For every argument the function has, \code{compile\_lambda\_expression} will generate bytecode that takes the top element on operand stack, and stores it in memory, based on the stack frame offset for the argument name, determined at this stage based on its order of appearance in the given code, and the stack frame address, determined at runtime. \code{compile\_lambda\_expression} will also record names and assign offsets for all locally declared names in the compiler lookup table. 
@@ -335,6 +333,7 @@ The function declaration form will be transformed to the constant declaration fo
             \end{itemize}
         \end{itemize}
 \end{itemize}
+\newpage
 The code generated for a function thus follows the following structure: 
 \begin{center}
 \begin{tabular}{ |c| } 
@@ -385,6 +384,7 @@ When there is a function application, the compiler generates code for the applic
 \caption*{Stack at the point of \code{JUMP}}
 \end{center}
 \end{table}
+\newpage
 \subsubsection{Variable capture}
 Instead of extending the current closure to capture variables from outer scopes, this compiler extends the list of arguments instead. The function \code{scan\_out\_names} scans out all names in a given parse tree that are \textit{not} locally declared or, in the case of functions, one of the function arguments. This scanning is done at the start of a sequence of expressions before any functions are actually compiled using the \code{scan\_out\_names} function through DFS of the entire parse tree. The resultant list of list of captured variables for each function is stored in the lookup table under \code{funcs}, with each list mapped to the name of the function it came from. This list is referred to when compiling both lambda expressions and applications.\\\\
 In addition to free variables, the name of the applied function is also added as a parameter. This is to allow for nested recursions like the following to be possible. 
@@ -423,6 +423,7 @@ Anonymous functions are defined when they are applied, or as return results (in 
 % 	\item tail\_recursion would take up constant space in the heap.
 % \end{itemize}
 
+\newpage
 \subsection{Compiler functions}
 \subsubsection{\texttt{compile\_expression}}
 Applies the appropriate compiler function depending the type of expression. \\\\
@@ -452,10 +453,28 @@ This function takes a sequence of expressions and does two things: \\\\
     \item Generate code for pushing value (or function PC offset) to operand stack and storing in appropriate location
 \end{enumerate}
 \subsubsection{\texttt{compile\_conditional}}
+\begin{prooftree}
+    \hypo{E}
+    \hypo{E_1}
+    \hypo{E_2}
+    \infer3{E\ ?\ E_1:E_2}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \hypo{\Delta\Vdash E\rightarrowtail true}
+    \hypo{\Delta\Vdash E_1\rightarrowtail v_1}
+    \infer2{\Delta\Vdash E\ ?\ E_1:E_2\rightarrowtail v_1}
+\end{prooftree}\qquad
+\begin{prooftree}
+    \hypo{\Delta\Vdash E\rightarrowtail false}
+    \hypo{\Delta\Vdash E_2\rightarrowtail v_2}
+    \infer2{\Delta\Vdash E\ ?\ E_1:E_2\rightarrowtail v_2}
+\end{prooftree}
 
 \subsubsection{\texttt{compile\_while\_loop}}
+Creates a \texttt{new\_env} that extends from its enclosing environment. All statements within the loop operate as per usual through \texttt{compile\_expression} within \texttt{new\_env}. PC offsets are generated on compile time to demarcate the start of condition checking and end of loop, respectively.
 
 \subsubsection{\texttt{compile\_for\_loop}}
+Same as while loop, except for special jump instructions to accommodate the three-part initialization sequence.
 
 \subsubsection{\texttt{compile\_lambda\_expression}}
 Generates code as follows: \\\\
@@ -490,3 +509,8 @@ The resultant chunks of code are concatenated together, prepended with \code{JUM
 
 \subsubsection{\texttt{compile\_tail\_call\_recursion}}
 After computing arguments and pushing them onto stack, retrieve PC offset for applied function, then pop current stack frame before pushing return PC and calling \code{JUMP}. 
+
+\subsection{Known Issues}
+\begin{enumerate}
+    \item Loops cannot accommodate function calls within its scope as the PC offsets of the function block is not easily obtainable through the existing implementation. Better pre-processing of functions and loops would certainly resolve this issue.
+\end{enumerate}
