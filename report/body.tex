@@ -1,3 +1,6 @@
+\tableofcontents
+\setcounter{secnumdepth}{3}
+\newpage
 % Chapter 1
 
 %\chapter{Chapter Title Here} % Main chapter title
@@ -16,8 +19,30 @@
 %----------------------------------------------------------------------------------------
 
 \section{User-level Documentation}
+\textbf{source2evm} is a Source to EVM bytecode compiler written in Typescript. This project comes bundled with standalone EVM binaries for both \code{arm64} and \code{x64} architecture that can be used to execute compiled code.\\\\
+The compiler currently supports the compilation of a subset of Source to bytecode for the Ethereum Virtual Machine (EVM). Syntax follows that of Source. 
 
-The Source-to-EVM current supports the compilation of a subset of the Source to bytecode for the Etherum Virtual Machine. Syntax follows that of Source. 
+\subsection{Installation}
+Compiler release can be downloaded from [PUT LINK HERE]. \\\\
+To build: 
+\begin{verbatim}
+yarn add
+yarn tsc
+\end{verbatim}
+
+\subsection{Usage}
+The compiler can be used through the \code{NodeJS} script \code{source2evm.js}. If executed without compiled compiler code, the script will compile the compiler with \code{tsc}. 
+\begin{verbatim}
+./source2evm -i [input file] [option]
+
+Options: 
+    -r: Execute the code with bundled EVM after compilation. 
+    -o: Write output bytecode to output file. 
+    -h: Show help message. 
+\end{verbatim}
+
+\subsection{Known Issues}
+Please switch to Node v14 if there are any issues with running the compiler. Newer versions of Node could cause problems with dependencies. 
 
 \subsection{Supported Features}
 \begin{itemize}
@@ -26,16 +51,14 @@ The Source-to-EVM current supports the compilation of a subset of the Source to 
   \item Declaration of variables and constants
   \item Functions
     \begin{itemize}
-      \item Function declarations and applications
-      \item Named functions and anonymous functions
+      \item Function declarations and applications of named and anonymous functions
       \item Nested functions
-      \item Recursive functions
-      \item Tail recursive functions
+      \item Recursion, tail call optimisation, mutual recursion
+      \item Functions as parameters and return values
     \end{itemize}
   \item Conditionals
     \begin{itemize}
-      \item Ternary operator
-      \item If-else statements
+      \item Ternary operator \& if-else statements
     \end{itemize}
   \item While and for loops
     \begin{itemize}
@@ -43,6 +66,84 @@ The Source-to-EVM current supports the compilation of a subset of the Source to 
     \end{itemize}
 \end{itemize}
 
+\subsection{Test cases}
+A number of test programs can be found under \code{/tests}. The expected result of evaluation can be found at the end of each file. 
+
+\subsection{Things to note}
+\subsubsection{Output}
+Similar to the Source interpreter, the compiled code will always return the result of the last statement of the given program that has return results. However, unlike the Source interpreter, if none of the statements in the program have return results, the code will return 0. 
+% \\\\
+% \textbf{Examples:} \\\\
+% \code{
+% 3+4; \\
+% 2+1; \\
+% // output 3 \\
+% } \\
+% \\
+% \code{
+% 3+4; \\
+% let x = 2+1; \\
+% // output 7
+% } \\
+% \\
+% \code{
+% let y = 7; \\
+% let x = 2+1; \\
+% // output 0
+% }
+
+\subsubsection{Unused return results}
+Due to the compiler's reliance on the EVM's stack for exiting from functions, \textbf{any} unused return values from any statements \textbf{within functions} will cause undefined behaviour, and will likely lead to EVM errors. Such statements can still be used outside of functions.
+% \textbf{Examples:}
+% \begin{verbatim}
+% function f() {
+%     3 + 4; // return value 7 not used, will cause EVM error
+% return 8;
+
+% function f() {
+%     3 + 4; // return value 7 not used,
+%           // will not cause EVM error but should still be avoided
+% }
+
+% function f() {
+%     let x = 3 + 4; // return value 7 is used in assignment
+%     return 8;
+% }
+
+% 3 + 4; // this is fine as it is not in a function
+% function f() { 
+%     return 8; 
+% }
+% \end{verbatim}
+\subsubsection{Scoping}
+Note that ALL arguments are passed-by-value to functions, hence variables are NOT mutable across function scopes. 
+\begin{verbatim}
+    let y = 1;
+    function f() { y = 2; return 0 };
+    y;
+\end{verbatim}
+The above code will return 1, as \code{f} only changed the value of the copy of \code{y} within its own scope. 
+
+\subsection{Compiler Error Messages}
+There is no static type checking in the compiler, but the compiler will check and throw exceptions for the following: 
+\begin{itemize}
+\item Reassigning values to constants
+\begin{verbatim}
+const x = 2;    x = 3; // reassigning const, compiler will throw exception here
+\end{verbatim}
+\item Referring to undeclared name
+\begin{verbatim}
+y + 4; // y not declared, compiler will throw exception here
+\end{verbatim}
+\item Using an unknown operator
+\begin{verbatim}
+1 $ 2; // $ is not a supported operator
+\end{verbatim}
+
+\end{itemize}
+Note that there will not be any line number information in the error messages. 
+\pagebreak
+\section{Developer-level Documentation}
 \subsection{Operators}
 The following operators are supported: 
 \begin{center}
@@ -76,102 +177,9 @@ The following operators are supported:
    \hline
   \end{tabular}
 \end{center}
-
 The ternary conditional operator is also supported: \\
 \code{condition ? if-true : if-false}
 
-\subsection{Things to note}
-\subsubsection{Output}
-Similar to the Source interpreter, the compiled code will always return the result of the last statement of the given program that has return results. However, unlike the Source interpreter, if none of the statements in the program has return results, the code will return 0. 
-\\\\
-\textbf{Examples:} \\\\
-\code{
-3+4; \\
-2+1; \\
-// output 3 \\
-} \\
-\\
-\code{
-3+4; \\
-let x = 2+1; \\
-// output 7
-} \\
-\\
-\code{
-let y = 7; \\
-let x = 2+1; \\
-// output 0
-}
-
-\subsubsection{Unused return results}
-Due to the compiler's reliance on the EVM's stack for exiting from functions, \textbf{any} unused return values from any statements \textbf{within functions} will cause undefined behaviour, and will likely lead to EVM errors. Such statements can still be used outside of functions. 
-\\\\
-\textbf{Examples:} \\\\
-\code{
-function f() \{\\
-3 + 4; // return value 7 not used, will cause EVM error\\
-return 8;\\
-\}\\
-}\\
-\code{
-function f() \{\\
-3 + 4; // return value 7 not used, will not cause EVM error but should still be avoided\\
-\}\\
-}\\
-\code{
-function f() \{\\
-let x = 3 + 4; // return value 7 is used in assignment\\
-return 8; \\
-\}\\
-}\\
-\code{
-3 + 4; // this is fine as it is not in a function \\
-function f() \{ 
-return 8; 
-\}\\
-}
-
-\subsection{Compile-time Checking}
-There is no static type checking in the compiler, but the compiler will check and throw exceptions for the following: 
-\begin{itemize}
-\item Reassigning values to constants\\
-e.g.
-\begin{verbatim}
-    const x = 2;
-    x = 3; // reassigning const, compiler will throw exception here
-\end{verbatim}
-\item Referring to undeclared name\\
-e.g.
-\begin{verbatim}
-    const x = 2;
-    y + 4; // y not declared, compiler will throw exception here
-\end{verbatim}
-
-\item Using an unknown operator\\
-e.g.
-\begin{verbatim}
-    1 $ 2; // $ is not a supported operator
-\end{verbatim}
-
-\end{itemize}
-Note that there will not be any line number information in the error messages. 
-
-In order to define the relation $\cdot[\cdot\leftarrow\cdot]\cdot$ we employ as usual an inductive definition using the following rules.\\\\
-\begin{prooftree}
-	\Infer0[for any name $v$]{v[v\leftarrow E_1]E_1}
-\end{prooftree}\qquad
-\begin{prooftree}
-	\Infer0[for any name $x\neq v$]{x[v\leftarrow E_1]x}
-\end{prooftree}\\\\
-\begin{prooftree}
-	\Hypo{E_1[v\leftarrow E]E_1'}
-	\Hypo{E_2[v\leftarrow E]E_2'}
-	\Infer2{E(E_2)[v\leftarrow E]E_1'(E_2')}
-\end{prooftree}\\\\\\
-
-\pagebreak
-\section{Developer-level Documentation}
-\subsection{Operators}
 When a known number needs to be pushed onto the operand stack, \code{PUSH32} is always used to push it as a 256 bytes integer. \\\\
 \begin{prooftree}
     \Hypo{n\rightarrow i}
@@ -252,29 +260,45 @@ Where \code{JUMPI} takes the the top operand on stack as the destination to chan
 \subsection{Conditionals}
 The ternary conditional operator is documented above. Conditional expressions in the form 
 \begin{verbatim}
-    if(cond} {
-        // if true
-    } else {
-        // if false
-    }
+if (cond) {
+    // if true
+} else {
+    // if false
+}
 \end{verbatim}
 are first converted to the ternary operator form, then their condition expression, truth expression, and false expression are extracted to be passed to the \code{compile\_conditional} function to be compiled in the same way as the ternary operator version. \\\\
 \begin{prooftree}
-    \Hypo{if(E_1)\{E_1\}else\{E_3\}}
-    \Infer1{E_1 ? E_2 : E_3}
+    \Hypo{\texttt{if}\ (E_1)\ \{E_1\}\ \texttt{else}\ \{E_3\}}
+    \Infer1{E_1 \texttt{?} E_2 \texttt{:} E_3}
 \end{prooftree}\\\\
 For if-else form of conditionals, the expressions within curly braces do not have their own independent scope. 
 
-\subsection{Loops}
-WIP
-
-\subsubsection{Memory model}
+\subsection{Memory model}
 EVM does not have registers or a conventional runtime stack, hence we have decided to use the memory to simulate both a runtime stack and shared registers. \\\\
 We have allocated the memory from 0x40 to 0x200 for stack frame pointers, and addresses from 0x220 onward are used for the call stack. Each stack frame on the call stack will contain values for all names that environment, which may either be a function or the main scope, contains within its lexical scope. As all names are allocated an address at the point of initialisation of that environment, which, for this compiler, would be at the during initialisation of functions. \\\\
 To keep track of the current active stack frame, addresses 0x00 and 0x20 are used as registers. 0x00 always contains the address of the current stack frame pointer, i.e. the stack frame pointers stored from 0x20 to 0x200. 0x20 will always store the actual address of the current stack frame, i.e. the value held at the address 0x00 points to. \\\\
 The stack frame pointers each point to the start of its corresponding stack frame. As the stack grows downwards, more stack frame pointer entries are placed onto the stack frame pointer stack, growing it with the call stack. For both the call stack and the stack frame pointer stack, the next available address is the one that immediately follows the current active stack frame. For the stack frame pointers, the next pointer will be pushed to the address of the current stack frame pointer plus 0x20. For the stack frame itself, the next available address will be the start of the current stack frame offset by the number of variables it contains times 0x20. \\\\
-When a function returns and the stack frame is no longer needed, the exiting stack frame will be "popped" by pointing the active stack frame pointer to the previous stack frame, "moving up" in both the stack frame pointer stack and the call stack. When another function is called, it's stack frame will start from the address previously used by the exited function, overwriting the previous memory. Garbage collection is thus not needed as memory is implicitly reclaimed upon function exit. \\\\
-During compilation, the compiler keeps a lookup table of the names known to each environment, and each name is given an offset amount, starting from 0x20, and increasing by 0x20 with every name. These names are the variables that the program can access in that environment. To access a variable, EVM takes the value at 0x20, then adds the offset for that variable name, which was determined at compile time, to obtain the actual address that variable resides at, where it can then invoke \code{MLOAD} or \code{MSTORE} to read from or write to that variable. \\
+When a function returns and the stack frame is no longer needed, the exiting stack frame will be "popped" by pointing the active stack frame pointer to the previous stack frame, "moving up" in both the stack frame pointer stack and the call stack. When another function is called, it's stack frame will start from the address previously used by the exited function, overwriting the previous memory. Garbage collection is thus not needed as memory is implicitly reclaimed upon function exit. 
+\subsubsection{Variables}
+During compilation, the compiler keeps a lookup table of the names known to each environment under \code{closure\_lookup.locals} in the compiler, and each name is given an offset amount, starting from 0x20, and increasing by 0x20 with every name. These names are the variables that the program can access in that environment. To access a variable, EVM takes the value at 0x20, then adds the offset for that variable name, which was determined at compile time, to obtain the actual address that variable resides at, where it can then invoke \code{MLOAD} or \code{MSTORE} to read from or write to that variable. \\
+
+\subsection{Loops}
+\subsubsection{While Loops}
+\begin{verbatim}
+while (cond) {
+    body;
+}
+\end{verbatim}
+\begin{prooftree}
+    \hypo{ggg}
+    \infer1[]{test};
+\end{prooftree}
+\subsubsection{For Loops}
+\begin{verbatim}
+for (let i = 0; i < 0; i = i+1) {
+    body;
+}
+\end{verbatim}
 
 \subsection{Functions}
 Functions exist in two forms, the code compiled from their body, and the PC offset serving as entry points to jump to. Within the final compiled bytecode, the bytecodes for all functions, named or anonymous, are placed at the start. The PC offsets for each function is thus known at compile. During runtime, the named functions are treated in the same way as other constant variables, only that the value stored in memory for a function is its PC offset. This allows functions to be passed as parameters and returned as return values just like any other data. 
@@ -339,6 +363,9 @@ When there is a function application, the compiler generates code for the applic
     \item \textit{Prepare arguments}: the actual list of arguments will now be compiled, which will result in their values being pushed on top of the operand stack at the end. 
     \item \textit{Get PC offset of function to be called}: compiler generates code that will retrieve, from memory, the PC offset of the function to be called. Such offsets are stored in memory like any other variables. 
     \item \textit{Prepare jump and return PC}: compiler will then append \code{JUMP}, code for returning stack frame, and \code{JUMPDEST} for the actual entry to function and eventual return. With the length of the code known now, the return PC can be calculated with \code{Current PC + length(code) + 1}. The return PC will be pushed on to stack first to put it below function arguments. 
+        \begin{itemize}
+            \item If the returned expression is a function, the function's free variables will be first pushed on to the operand stack before \code{JUMP} is called. The application of functions that return functions thus have to be followed by another application immediately to consume the function returned by calling \code{JUMP} with the returned function PC on the stack. 
+        \end{itemize}
 \end{itemize}
 \begin{table}[!h]
 \begin{center}
@@ -358,39 +385,72 @@ When there is a function application, the compiler generates code for the applic
 \caption*{Stack at the point of \code{JUMP}}
 \end{center}
 \end{table}
-
-\subsubsection{Lifting of captured variables}
-Instead of extending the current closure to capture variables from outer scopes, this compiler extends the list of arguments instead. The function \code{scan\_out\_names} scans out all names in a given parse tree that are \textit{not} locally declared or, in the case of functions, one of the function arguments. This scanning is done at the start of a sequence of expressions before any functions are actually compiled. The resultant list of list of captured variables for each function is stored in the lookup table under \code{funcs}, with each list mapped to the name of the function it came from. This list is referred to when compiling both lambda expressions and applications. 
+\subsubsection{Variable capture}
+Instead of extending the current closure to capture variables from outer scopes, this compiler extends the list of arguments instead. The function \code{scan\_out\_names} scans out all names in a given parse tree that are \textit{not} locally declared or, in the case of functions, one of the function arguments. This scanning is done at the start of a sequence of expressions before any functions are actually compiled using the \code{scan\_out\_names} function through DFS of the entire parse tree. The resultant list of list of captured variables for each function is stored in the lookup table under \code{funcs}, with each list mapped to the name of the function it came from. This list is referred to when compiling both lambda expressions and applications.\\\\
+In addition to free variables, the name of the applied function is also added as a parameter. This is to allow for nested recursions like the following to be possible. 
+\begin{center}
+\begin{verbatim}
+function f() {
+    return g();
+}
+function g() {
+    return f();
+}
+\end{verbatim}
+\end{center}
 
 \subsubsection{Tail call optimisation}
+For functions whose return expression consists of only a function application, the compiler compiles the return differently through the \code{compile\_tail\_call\_recursion} function. During runtime, this application will first pop the current stack frame before entering the new function, which generates another frame. 
 
 \subsubsection{Anonymous Functions}
+Anonymous functions are defined when they are applied, or as return results (in which case they need to be applied immediately after being returned). They are thus compiled during application. When compiling a return expression or application and the expression is a lambda expression, they are compiled as lambda expressions and have their free variables scanned at that moment. Their PC offset is not stored in memory as it is only used once. They behave similarly to named functions other than when they are compiled. 
 
-\subsection{Garbage Collection}
+% \subsection{Garbage Collection}
 
-Garbage collection is implicitly implemented in our compiler design.\\\\
-Testament:
-\begin{itemize}
-	\item For loop that calls a function that creates a bunch of variables. Each function call creates a new Environment, but the heap (memory) size will stay relatively constant
-	\begin{verbatim}
-		function f() {
-		    let x = 5;
-		    let y = 6;
-		}
-		for (let i = 0; i < 3; i = i + 1) {
-		    f();
-		}
-	\end{verbatim}
-	\item tail\_recursion would take up constant space in the heap.
-\end{itemize}
+% Garbage collection is implicitly implemented in our compiler design.\\\\
+% Testament:
+% \begin{itemize}
+% 	\item For loop that calls a function that creates a bunch of variables. Each function call creates a new Environment, but the heap (memory) size will stay relatively constant
+% 	\begin{verbatim}
+% 		function f() {
+% 		    let x = 5;
+% 		    let y = 6;
+% 		}
+% 		for (let i = 0; i < 3; i = i + 1) {
+% 		    f();
+% 		}
+% 	\end{verbatim}
+% 	\item tail\_recursion would take up constant space in the heap.
+% \end{itemize}
 
 \subsection{Compiler functions}
 \subsubsection{\texttt{compile\_expression}}
-
+Applies the appropriate compiler function depending the type of expression. \\\\
+\begin{prooftree}
+    \Hypo{E}
+    \Infer1{E\hookrightarrow s}
+\end{prooftree}
 \subsubsection{\texttt{compile\_sequence}}
-
+This function takes a sequence of expressions and does two things: \\\\
+\textbf{Convert free variables in each function to arguments}
+\begin{enumerate}
+    \item Scans out all functions in the program through DFS
+    \item For each function, retrieve name and scan out all free variables, including those in nested functions
+    \item Store, in \code{closure\_lookup.funcs}, the function name to captured variable pairs, pushing in the name of the function itself
+\end{enumerate}
+\textbf{Compiles every expression in the sequence by applying \code{compile\_expression}}\\\\
+\begin{prooftree}
+    \Hypo{E_1 \hookrightarrow s_1, ..., E_n \hookrightarrow s_n}
+    \Infer1{\{E_1, ..., E_n\} \hookrightarrow s_1...s_n}
+\end{prooftree}
 \subsubsection{\texttt{compile\_constant}}
-
+\begin{enumerate}
+    \item Get constant name
+    \item Record name in \code{closure\_lookup.locals}
+    \item Add name to in \code{closure\_lookup.constants}
+    \item If is a function, call \code{compile\_lambda\_expressions}
+    \item Generate code for pushing value (or function PC offset) to operand stack and storing in appropriate location
+\end{enumerate}
 \subsubsection{\texttt{compile\_conditional}}
 
 \subsubsection{\texttt{compile\_while\_loop}}
@@ -398,10 +458,35 @@ Testament:
 \subsubsection{\texttt{compile\_for\_loop}}
 
 \subsubsection{\texttt{compile\_lambda\_expression}}
+Generates code as follows: \\\\
+\textbf{Allocate space on stack and consume arguments on operand stack}\\\\
+\begin{prooftree}
+    \Hypo{(x_1, ..., x_n, v_1, ..., v_m) => \{E\}}
+    \Infer1{(x_1, ..., x_i, ..., x_n, v_1, ..., v_m) \hookrightarrow (PUSH4\cdot 32i \cdot PUSH \cdot 0x20 \cdot ADD \cdot MSTORE)^{(n+m)}}
+\end{prooftree}\\\\\\
+where $x^{(n)}:=x$ is repeated $n$ times\\\\
+\textbf{Compile lambda body}\\\\
+\begin{prooftree}
+    \Hypo{E \hookrightarrow s}
+    \Infer1{(x_1, ..., x_i, ..., x_n, v_1, ..., v_m) => {E} \hookrightarrow s}
+\end{prooftree}\\\\\\
+\textbf{Return PC}\\\\
+\begin{prooftree}
+    \Infer0{SWAP1 \cdot JUMP}
+\end{prooftree}\\\\
+The resultant chunks of code are concatenated together, prepended with \code{JUMPDEST}, and appended to the global variable \code{constants}. The code for storing PC offset of this function to memory is returned.  
 
 \subsubsection{\texttt{compile\_application}}
+\begin{enumerate}
+    \item Calculate return PC and push onto operand stack
+    \item Compile arguments and captured variables\\\\
+    \begin{prooftree}
+        \Hypo{E_1 \hookrightarrow s_1, ..., E_n \hookrightarrow s_n, v_1 \hookrightarrow c_1, ..., v_m \hookrightarrow c_m}
+        \Infer1{(E_1, ..., E_n, v_1, ..., v_m) \hookrightarrow s_1 ... s_n v_1...v_m}
+    \end{prooftree}, \\\\where $v_i$ are captured variables of the function. 
+    \item Generate code to retrieve function offset
+    \item Append \code{JUMP} and \code{JUMPDEST}
+\end{enumerate}
 
 \subsubsection{\texttt{compile\_tail\_call\_recursion}}
-
-\subsection{Running the suite}
-
+After computing arguments and pushing them onto stack, retrieve PC offset for applied function, then pop current stack frame before pushing return PC and calling \code{JUMP}. 
