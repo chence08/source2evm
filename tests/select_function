@@ -3,3 +3,5 @@ function pair(a, b) {
 }
 
 pair(10, 20)(1);
+
+// 20

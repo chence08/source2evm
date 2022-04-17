@@ -6,3 +6,5 @@ function f() {
   return f2;
 }
 f()(2);
+
+// 12

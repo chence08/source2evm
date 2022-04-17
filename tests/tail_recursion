@@ -6,4 +6,4 @@ function f(x, y) {
   }
 }
 f(1000, 1);
-// expected 
+// expected 500500
