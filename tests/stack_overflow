@@ -6,3 +6,5 @@ function f(x) {
   }
 }
 f(1000);
+
+// EVM stack overflow

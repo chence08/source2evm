@@ -7,3 +7,5 @@ function fib(n) {
 }
 
 fib(18);
+
+// EVM jump error

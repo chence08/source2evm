@@ -1,0 +1,11 @@
+function apply_twice(f, x) {
+  return f(f(x));
+}
+
+function square(x) {
+  return x * x;
+}
+
+apply_twice(square, 2);
+
+//expected: 16

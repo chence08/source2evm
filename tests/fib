@@ -7,3 +7,5 @@ function fib(n) {
 }
 
 fib(6);
+
+// 8

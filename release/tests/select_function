@@ -1,0 +1,7 @@
+function pair(a, b) {
+  return x => x === 0 ? a : b;
+}
+
+pair(10, 20)(1);
+
+// 20

@@ -1,0 +1,11 @@
+function f(x) {
+  return a + (2 * b) + (3 * c) + (4 * x);
+}
+
+const a = 1;
+const b = 2;
+const c = 3;
+
+f(4);
+
+// 30

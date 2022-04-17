@@ -7,3 +7,5 @@ function square(x) {
 }
 
 apply_twice(square, 2);
+
+//expected: 16
