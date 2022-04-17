@@ -17,13 +17,9 @@ yarn add
 yarn tsc
 ```
 
-Tested requirements:
+**Node requirements: v14.17.2**
 
-- node v14.17.2
-
-	> node v16 is not compatible as of last testing.
-
-- python3
+> node v16 is not compatible as of last testing.
 
 the evm binary provided is sourced from [Go Ethereum](https://geth.ethereum.org/).
 
