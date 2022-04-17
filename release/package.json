@@ -1,0 +1,13 @@
+{
+  "name": "source2evm",
+  "repository": "https://github.com/chence08/source2evm.git",
+  "devDependencies": {
+    "js-slang": "^0.4.71"
+  },
+  "scripts": {
+    "run": "node source2evm.js"
+  },
+  "dependencies": {
+    "typescript": "^4.6.2"
+  }
+}

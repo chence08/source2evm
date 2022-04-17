@@ -1,0 +1,13 @@
+function f() {
+  function j() {
+    function k() {
+      return 3 + y;
+    }
+    return k() + 2;
+  }
+  return j() + j();
+}
+const y = 2;
+
+f();
+// expected 14

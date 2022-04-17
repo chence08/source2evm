@@ -1,0 +1,11 @@
+{
+  "files": [
+    "src/evm_alt.ts",
+  ],
+  "compilerOptions": {
+    "target": "ES6",
+    "lib": ["es6", "dom", "es2017"],
+    "module": "CommonJS",
+    "outDir": "./output"
+  }
+}
